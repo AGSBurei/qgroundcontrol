@@ -26,24 +26,8 @@ Item {
 
     readonly property real axisMonitorWidth: ScreenTools.defaultFontPixelWidth * 32
 
-    property bool _buttonsOnly:(function(){
-        var isButtonOnly = false
-        for(var i = 0; i < _activeJoysticksList.lenght; i++){
-            if(_activeJoysticksList[i].axisCount === 0){
-                isButtonOnly = true
-            }
-        }
-        return isButtonOnly
-    })
-    property bool _requiresCalibration:(function(){
-        var isCalibrated = false
-        for(var i = 0; i < _activeJoysticksList.lenght; i++){
-            if(!_activeJoysticksList[i].calibrated && !_buttonsOnly){
-                isCalibrated = true
-            }
-        }
-        return isCalibrated
-    })
+    property bool _buttonsOnly:         _activeJoystick.axisCount == 0
+    property bool _requiresCalibration: !_activeJoystick.calibrated && !_buttonsOnly
 
     Column {
         id:                 mainCol
@@ -56,7 +40,7 @@ Item {
             //---------------------------------------------------------------------
             //-- Enable Joystick
             QGCLabel {
-                text:               _requiresCalibration ? qsTr("Enable not allowed (Calibrate First)") : qsTr("Enable peripherals input")
+                text:               _requiresCalibration ? qsTr("Enable not allowed (Calibrate First)") : qsTr("Enable joystick input")
                 Layout.alignment:   Qt.AlignVCenter
                 Layout.minimumWidth: ScreenTools.defaultFontPixelWidth * 36
             }
@@ -86,21 +70,31 @@ Item {
                 }
             }
             //---------------------------------------------------------------------
-            //-- Selected peripheral list
+            //-- Joystick Selector
             QGCLabel {
-                text:               qsTr("Selected peripheral:")
+                text:               qsTr("Active joystick:")
                 Layout.alignment:   Qt.AlignVCenter
             }
-            GridLayout {
-                columns: 1
-                columnSpacing:      ScreenTools.defaultFontPixelWidth
-                rowSpacing:         ScreenTools.defaultFontPixelHeight
-                Repeater {
-                    model: joystickManager.activePeripherals
-                    Row {
-                        QGCLabel{
-                            id: peripheralName
-                            text: joystickManager.activePeripherals[index].name
+            QGCComboBox {
+                id:                 joystickCombo
+                width:              ScreenTools.defaultFontPixelWidth * 40
+                Layout.alignment:   Qt.AlignVCenter
+                model:              joystickManager.joystickNames
+                onActivated:        joystickManager.activeJoystickName = textAt(index)
+                Component.onCompleted: {
+                    var index = joystickCombo.find(joystickManager.activeJoystickName)
+                    if (index === -1) {
+                        console.warn(qsTr("Active joystick name not in combo"), joystickManager.activeJoystickName)
+                    } else {
+                        joystickCombo.currentIndex = index
+                    }
+                }
+                Connections {
+                    target: joystickManager
+                    onAvailableJoysticksChanged: {
+                        var index = joystickCombo.find(joystickManager.activeJoystickName)
+                        if (index >= 0) {
+                            joystickCombo.currentIndex = index
                         }
                     }
                 }

@@ -180,6 +180,7 @@ public:
     Q_PROPERTY(int                  messageCount                READ messageCount                                                   NOTIFY messageCountChanged)
     Q_PROPERTY(QString              formattedMessages           READ formattedMessages                                              NOTIFY formattedMessagesChanged)
     Q_PROPERTY(bool                 joystickEnabled             READ joystickEnabled            WRITE setJoystickEnabled            NOTIFY joystickEnabledChanged)
+    Q_PROPERTY(bool                 peripheralsEnabled          READ peripheralsEnabled         WRITE setperipheralsEnabled         NOTIFY peripheralsEnabledChanged)
     Q_PROPERTY(int                  flowImageIndex              READ flowImageIndex                                                 NOTIFY flowImageIndexChanged)
     Q_PROPERTY(int                  rcRSSI                      READ rcRSSI                                                         NOTIFY rcRSSIChanged)
     Q_PROPERTY(bool                 px4Firmware                 READ px4Firmware                                                    NOTIFY firmwareTypeChanged)
@@ -489,7 +490,9 @@ public:
     void updateFlightDistance(double distance);
 
     bool joystickEnabled            () const;
+    bool peripheralsEnabled         () const;
     void setJoystickEnabled         (bool enabled);
+    void setPeripheralsEnabled      (bool enabled);
     void sendJoystickDataThreadSafe (float roll, float pitch, float yaw, float thrust, quint16 buttons);
 
     // Property accesors
@@ -1143,6 +1146,7 @@ private:
     QFile               _csvLogFile;
 
     bool            _joystickEnabled = false;
+    bool            _peripheralsEnabled = false;
 
     UAS* _uas = nullptr;
 
