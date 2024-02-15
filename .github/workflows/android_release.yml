@@ -8,9 +8,14 @@ on:
       - 'Stable*'
     tags:
       - 'v*'
+    paths-ignore:
+      - 'docs/**'
   pull_request:
     branches:
     - '*'
+    paths-ignore:
+      - 'docs/**'
+      - '.github/workflows/**'
 
 defaults:
   run:
@@ -18,7 +23,7 @@ defaults:
 
 env:
   SOURCE_DIR:   ${{ github.workspace }}
-  QT_VERSION:   5.15.2
+  QT_VERSION:   6.6.1
   BUILD_TYPE:   ${{ fromJSON('["DailyBuild", "StableBuild"]')[ github.ref_type == 'tag' || contains(github.ref, 'Stable_' ) ] }}
 
 jobs:
@@ -30,9 +35,11 @@ jobs:
        include:
          - architecture: 32bits
            eabi: armeabi-v7a
+           arch: android_armv7
            ARTIFACT: QGroundControl32.apk
          - architecture: 64bits
            eabi: arm64-v8a
+           arch: android_arm64_v8a
            ARTIFACT: QGroundControl64.apk
 
     steps:
@@ -46,22 +53,29 @@ jobs:
         run: |
           git fetch --all --tags -f --depth 1
 
-      - name: Install Qt
+      - name: Install Qt6 for Linux (required for Android)
         uses: jurplel/install-qt-action@v3
         with:
           version:      ${{ env.QT_VERSION }}
+          aqtversion:   ==3.1.*
           host:         linux
-          target:       android
+          target:       desktop
           dir:          ${{ runner.temp }}
-          modules:      qtcharts
+          modules:      qtcharts qtlocation qtpositioning qtspeech qt5compat qtmultimedia qtserialport qtimageformats qtshadertools qtconnectivity qtquick3d
           setup-python: true
 
-      - name: Install Android NDK
-        uses: nttld/setup-ndk@v1
-        id: setup-ndk
+      - name: Install Qt6 for Android
+        uses: jurplel/install-qt-action@v3
         with:
-          ndk-version: r21e
-          add-to-path: false
+          version:      ${{ env.QT_VERSION }}
+          aqtversion:   ==3.1.*
+          host:         linux
+          target:       android
+          arch:         ${{ matrix.arch }}
+          extra:        --autodesktop
+          dir:          ${{ runner.temp }}
+          modules:      qtcharts qtlocation qtpositioning qtspeech qt5compat qtmultimedia qtserialport qtimageformats qtshadertools qtconnectivity qtquick3d
+          setup-python: true
 
       - name: Remove Android SDKs to force usage of android-33 only
         run: |
@@ -112,11 +126,8 @@ jobs:
         working-directory: ${{ runner.temp }}/shadow_build_dir
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
-          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-          ANDROID_NDK_LATEST_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-          ANDROID_NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
         run:  |
+            ls /home/runner/work/_temp/Qt/6.6.1
             qmake -r ${SOURCE_DIR}/qgroundcontrol.pro -spec android-clang CONFIG+=${BUILD_TYPE} CONFIG+=installer ANDROID_ABIS="${{ matrix.eabi }}"
             make -j2
 

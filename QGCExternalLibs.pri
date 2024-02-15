@@ -83,12 +83,6 @@ count(MAVLINK_CONF, 1) {
 }
 
 #
-# [REQUIRED] EIGEN matrix library
-# NOMINMAX constant required to make internal min/max work.
-INCLUDEPATH += libs/eigen
-DEFINES += NOMINMAX
-
-#
 # [REQUIRED] Events submodule
 HEADERS+= \
 	libs/libevents/libevents/libs/cpp/protocol/receive.h \
@@ -218,36 +212,6 @@ AndroidBuild {
     #message($$ANDROID_EXTRA_LIBS)
 }
 
-# Pairing
-contains(DEFINES, QGC_ENABLE_PAIRING) {
-    MacBuild {
-        #- Pairing is generally not supported on macOS. This is here solely for development.
-        exists(/usr/local/Cellar/openssl/1.0.2t/include) {
-            INCLUDEPATH += /usr/local/Cellar/openssl/1.0.2t/include
-            LIBS += -L/usr/local/Cellar/openssl/1.0.2t/lib
-            LIBS += -lcrypto
-        } else {
-            # There is some circular reference settings going on between QGCExternalLibs.pri and gqgroundcontrol.pro.
-            # So this duplicates some of the enable/disable logic which would normally be in qgroundcontrol.pro.
-            DEFINES -= QGC_ENABLE_PAIRING
-        }
-    } else:WindowsBuild {
-        #- Pairing is not supported on Windows
-        DEFINES -= QGC_ENABLE_PAIRING
-    } else {
-        LIBS += -lcrypto
-        AndroidBuild {
-            contains(QT_ARCH, arm) {
-                LIBS += $$ANDROID_EXTRA_LIBS
-                INCLUDEPATH += $$SOURCE_DIR/libs/OpenSSL/Android/arch-armeabi-v7a/include
-            } else {
-                LIBS += $$ANDROID_EXTRA_LIBS
-                INCLUDEPATH += $$SOURCE_DIR/libs/OpenSSL/Android/arch-x86/include
-            }
-        }
-    }
-}
-
 #
 # [OPTIONAL] Zeroconf for UDP links
 #
@@ -263,4 +227,10 @@ contains (DEFINES, DISABLE_ZEROCONF) {
     DEFINES += QGC_ZEROCONF_ENABLED
 } else {
     message("Skipping support for Zeroconf (unsupported platform)")
+}
+
+# UTM Adapter Enabled
+contains (DEFINES, CONFIG_UTM_ADAPTER){
+    INCLUDEPATH += $$PWD/libs/libevents/libevents/libs/cpp/parse/nlohmann_json/include
+    LIBS += -lboost_system -lboost_thread -lssl -lcrypto
 }

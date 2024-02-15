@@ -196,7 +196,7 @@ bool PX4FirmwarePlugin::setFlightMode(const QString& flightMode, uint8_t* base_m
 
     bool found = false;
     foreach (const FlightModeInfo_t& info, _flightModeInfoList) {
-        if (flightMode.compare(info.name, Qt::CaseInsensitive) == 0) {
+        if (flightMode.compare(*info.name, Qt::CaseInsensitive) == 0) {
             union px4_custom_mode px4_mode;
 
             px4_mode.data = 0;
@@ -737,4 +737,25 @@ bool PX4FirmwarePlugin::hasGripper(const Vehicle* vehicle) const
         return _hasGripper;
     }
     return false;
+}
+
+QVariant PX4FirmwarePlugin::mainStatusIndicatorExpandedItem(const Vehicle*) const
+{
+    return QVariant::fromValue(QUrl::fromUserInput("qrc:/PX4/Indicators/PX4MainStatusIndicatorExpandedItem.qml"));
+}
+
+const QVariantList& PX4FirmwarePlugin::toolIndicators(const Vehicle*)
+{
+    //-- Default list of indicators for all vehicles.
+    if(_toolIndicatorList.size() == 0) {
+        _toolIndicatorList = QVariantList({
+            QVariant::fromValue(QUrl::fromUserInput("qrc:/PX4/Indicators/PX4FlightModeIndicator.qml")),
+            QVariant::fromValue(QUrl::fromUserInput("qrc:/toolbar/MessageIndicator.qml")),
+            QVariant::fromValue(QUrl::fromUserInput("qrc:/toolbar/GPSIndicator.qml")),
+            QVariant::fromValue(QUrl::fromUserInput("qrc:/toolbar/TelemetryRSSIIndicator.qml")),
+            QVariant::fromValue(QUrl::fromUserInput("qrc:/toolbar/RCRSSIIndicator.qml")),
+            QVariant::fromValue(QUrl::fromUserInput("qrc:/PX4/Indicators/PX4BatteryIndicator.qml")),
+        });
+    }
+    return _toolIndicatorList;
 }

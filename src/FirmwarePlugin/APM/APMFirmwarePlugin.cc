@@ -29,10 +29,11 @@
 #include "LinkManager.h"
 
 #include <QTcpSocket>
+#include <QtCore5Compat/QRegExp>
 
 QGC_LOGGING_CATEGORY(APMFirmwarePluginLog, "APMFirmwarePluginLog")
 
-static const QRegExp APM_FRAME_REXP("^Frame: ");
+static const QRegularExpression APM_FRAME_REXP("^Frame: ");
 
 const char* APMFirmwarePlugin::_artooIP =                   "10.1.1.1"; ///< IP address of ARTOO controller
 const int   APMFirmwarePlugin::_artooVideoHandshakePort =   5502;       ///< Port for video handshake on ARTOO controller
@@ -80,6 +81,7 @@ bool APMFirmwarePlugin::isCapable(const Vehicle* vehicle, FirmwareCapabilities c
     uint32_t available = SetFlightModeCapability | PauseVehicleCapability | GuidedModeCapability | ROIModeCapability;
     if (vehicle->multiRotor()) {
         available |= TakeoffVehicleCapability;
+        available |= ROIModeCapability;
     } else if (vehicle->vtol()) {
         available |= TakeoffVehicleCapability;
     }
@@ -547,6 +549,7 @@ QList<MAV_CMD> APMFirmwarePlugin::supportedMissionCommands(QGCMAVLink::VehicleCl
         MAV_CMD_DO_SET_ROI,
         MAV_CMD_DO_DIGICAM_CONFIGURE, MAV_CMD_DO_DIGICAM_CONTROL,
         MAV_CMD_DO_MOUNT_CONTROL,
+        MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW,
         MAV_CMD_DO_SET_CAM_TRIGG_DIST,
         MAV_CMD_DO_FENCE_ENABLE,
         MAV_CMD_DO_PARACHUTE,

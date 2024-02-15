@@ -7,23 +7,29 @@
  *
  ****************************************************************************/
 
-import QtQuick 2.12
+import QtQuick
+import QtQuick.Layouts
 
-import QGroundControl               1.0
-import QGroundControl.Controls      1.0
-import QGroundControl.ScreenTools   1.0
+import QGroundControl
+import QGroundControl.Controls
+import QGroundControl.ScreenTools
 
 // This control contains the instruments as well and the instrument pages which include values, camera, ...
-Column {
+ColumnLayout {
     id:         _root
     spacing:    _toolsMargin
     z:          QGroundControl.zOrderWidgets
 
     property real availableHeight
 
-    FlightDisplayViewWidgets {
-        id:                 flightDisplayViewWidgets
-        width:              parent.width
-        missionController:  _missionController
+    SelectableControl {
+        selectionUIRightAnchor: true
+        selectedControl:        QGroundControl.settingsManager.flyViewSettings.instrumentQmlFile
+
+        property var missionController: _missionController
+    }
+
+    TerrainProgress {
+        Layout.fillWidth: true
     }
 }

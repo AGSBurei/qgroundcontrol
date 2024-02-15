@@ -52,10 +52,14 @@
 #include "VehicleGeneratorFactGroup.h"
 #include "VehicleEFIFactGroup.h"
 
+#ifdef CONFIG_UTM_ADAPTER
+#include "UTMSPVehicle.h"
+#include "UTMSPManager.h"
+#endif
+
 class Actuators;
 class EventHandler;
 class UAS;
-class UASInterface;
 class FirmwarePlugin;
 class FirmwarePluginManager;
 class AutoPilotPlugin;
@@ -78,6 +82,22 @@ class LinkManager;
 class InitialConnectStateMachine;
 class Autotune;
 class RemoteIDManager;
+#ifdef CONFIG_UTM_ADAPTER
+class UTMSPVehicle;
+#endif
+
+Q_MOC_INCLUDE("AutoPilotPlugin.h")
+Q_MOC_INCLUDE("TrajectoryPoints.h")
+Q_MOC_INCLUDE("ParameterManager.h")
+Q_MOC_INCLUDE("VehicleObjectAvoidance.h")
+Q_MOC_INCLUDE("Autotune.h")
+Q_MOC_INCLUDE("RemoteIDManager.h")
+Q_MOC_INCLUDE("QGCCameraManager.h")
+
+#ifndef OPAQUE_PTR_VEHICLE
+    #define OPAQUE_PTR_VEHICLE
+    Q_DECLARE_OPAQUE_POINTER(Actuators*)
+#endif
 
 namespace events {
 namespace parser {
@@ -232,6 +252,7 @@ public:
     Q_PROPERTY(unsigned int         telemetryTXBuffer           READ telemetryTXBuffer                                              NOTIFY telemetryTXBufferChanged)
     Q_PROPERTY(int                  telemetryLNoise             READ telemetryLNoise                                                NOTIFY telemetryLNoiseChanged)
     Q_PROPERTY(int                  telemetryRNoise             READ telemetryRNoise                                                NOTIFY telemetryRNoiseChanged)
+    Q_PROPERTY(QVariant         mainStatusIndicatorExpandedItem READ mainStatusIndicatorExpandedItem                                CONSTANT)
     Q_PROPERTY(QVariantList         toolIndicators              READ toolIndicators                                                 NOTIFY toolIndicatorsChanged)
     Q_PROPERTY(QVariantList         modeIndicators              READ modeIndicators                                                 NOTIFY modeIndicatorsChanged)
     Q_PROPERTY(bool              initialPlanRequestComplete     READ initialPlanRequestComplete                                     NOTIFY initialPlanRequestCompleteChanged)
@@ -306,6 +327,7 @@ public:
     Q_PROPERTY(Fact* timeToHome         READ timeToHome         CONSTANT)
     Q_PROPERTY(Fact* missionItemIndex   READ missionItemIndex   CONSTANT)
     Q_PROPERTY(Fact* headingToNextWP    READ headingToNextWP    CONSTANT)
+    Q_PROPERTY(Fact* distanceToNextWP   READ distanceToNextWP   CONSTANT)
     Q_PROPERTY(Fact* headingToHome      READ headingToHome      CONSTANT)
     Q_PROPERTY(Fact* distanceToGCS      READ distanceToGCS      CONSTANT)
     Q_PROPERTY(Fact* hobbs              READ hobbs              CONSTANT)
@@ -410,6 +432,12 @@ public:
     /// Command vehicle to abort landing
     Q_INVOKABLE void abortLanding(double climbOutAltitude);
 
+    /// Command vichecle to deploy landing gear
+    Q_INVOKABLE void landingGearDeploy();
+
+    /// Command vichecle to retract landing gear
+    Q_INVOKABLE void landingGearRetract();
+
     Q_INVOKABLE void startMission();
 
     /// Alter the current mission item on the vehicle
@@ -422,6 +450,7 @@ public:
     Q_INVOKABLE void clearMessages();
 
     Q_INVOKABLE void sendPlan(QString planFile);
+    Q_INVOKABLE void setEstimatorOrigin(const QGeoCoordinate& centerCoord);
 
     /// Used to check if running current version is equal or higher than the one being compared.
     //  returns 1 if current > compare, 0 if current == compare, -1 if current < compare
@@ -511,9 +540,6 @@ public:
     /// guarantee that it makes it to the vehicle.
     void sendMessageMultiple(mavlink_message_t message);
 
-    /// Provides access to uas from vehicle. Temporary workaround until UAS is fully phased out.
-    UAS* uas() { return _uas; }
-
     /// Provides access to uas from vehicle. Temporary workaround until AutoPilotPlugin is fully phased out.
     AutoPilotPlugin* autopilotPlugin() { return _autopilotPlugin; }
 
@@ -536,20 +562,22 @@ public:
 
     /**
      * @brief Send MAV_CMD_DO_GRIPPER command to trigger specified action in the vehicle
-     * 
+     *
      * @param gripperAction Gripper action to trigger
     */
 
     enum    GRIPPER_OPTIONS
     {
-    Gripper_release = GRIPPER_ACTION_RELEASE, 
+    Gripper_release = GRIPPER_ACTION_RELEASE,
     Gripper_grab    = GRIPPER_ACTION_GRAB,
     Invalid_option  = GRIPPER_ACTIONS_ENUM_END,
-    }; 
+    };
     Q_ENUM(GRIPPER_OPTIONS)
 
     void setGripperAction(GRIPPER_ACTIONS gripperAction);
-    Q_INVOKABLE void sendGripperAction(GRIPPER_OPTIONS gripperOption); 
+    Q_INVOKABLE void sendGripperAction(GRIPPER_OPTIONS gripperOption);
+
+    void pairRX(int rxType, int rxSubType);
 
     bool fixedWing() const;
     bool multiRotor() const;
@@ -603,7 +631,6 @@ public:
     QString         formattedMessages           ();
     float           latitude                    () { return static_cast<float>(_coordinate.latitude()); }
     float           longitude                   () { return static_cast<float>(_coordinate.longitude()); }
-    bool            mavPresent                  () { return _mav != nullptr; }
     int             rcRSSI                      () const{ return _rcRSSI; }
     bool            px4Firmware                 () const { return _firmwareType == MAV_AUTOPILOT_PX4; }
     bool            apmFirmware                 () const { return _firmwareType == MAV_AUTOPILOT_ARDUPILOTMEGA; }
@@ -702,6 +729,7 @@ public:
     Fact* timeToHome                        () { return &_timeToHomeFact; }
     Fact* missionItemIndex                  () { return &_missionItemIndexFact; }
     Fact* headingToNextWP                   () { return &_headingToNextWPFact; }
+    Fact* distanceToNextWP                  () { return &_distanceToNextWPFact; }
     Fact* headingToHome                     () { return &_headingToHomeFact; }
     Fact* distanceToGCS                     () { return &_distanceToGCSFact; }
     Fact* hobbs                             () { return &_hobbsFact; }
@@ -747,6 +775,7 @@ public:
     ///     @param showError true: Display error to user if command failed, false:  no error shown
     /// Signals: mavCommandResult on success or failure
     void sendMavCommand(int compId, MAV_CMD command, bool showError, float param1 = 0.0f, float param2 = 0.0f, float param3 = 0.0f, float param4 = 0.0f, float param5 = 0.0f, float param6 = 0.0f, float param7 = 0.0f);
+    void sendMavCommandDelayed(int compId, MAV_CMD command, bool showError, int milliseconds, float param1 = 0.0f, float param2 = 0.0f, float param3 = 0.0f, float param4 = 0.0f, float param5 = 0.0f, float param6 = 0.0f, float param7 = 0.0f);
     void sendMavCommandInt(int compId, MAV_CMD command, MAV_FRAME frame, bool showError, float param1, float param2, float param3, float param4, double param5, double param6, float param7);
 
     ///
@@ -873,9 +902,10 @@ public:
     QString vehicleImageOutline () const;
     QString vehicleImageCompass () const;
 
-    const QVariantList&         toolIndicators      ();
-    const QVariantList&         modeIndicators      ();
-    const QVariantList&         staticCameraList    () const;
+    QVariant                    mainStatusIndicatorExpandedItem ();
+    const QVariantList&         toolIndicators                  ();
+    const QVariantList&         modeIndicators                  ();
+    const QVariantList&         staticCameraList                () const;
 
     bool capabilitiesKnown      () const { return _capabilityBitsKnown; }
     uint64_t capabilityBits     () const { return _capabilityBits; }    // Change signalled by capabilityBitsChanged
@@ -1031,6 +1061,9 @@ signals:
 
     void sensorsParametersResetAck      (bool success);
 
+    void logEntry                       (uint32_t time_utc, uint32_t size, uint16_t id, uint16_t num_logs, uint16_t last_log_num);
+    void logData                        (uint32_t ofs, uint16_t id, uint8_t count, const uint8_t* data);
+
 private slots:
     void _mavlinkMessageReceived            (LinkInterface* link, mavlink_message_t message);
     void _sendMessageMultipleNext           ();
@@ -1154,7 +1187,6 @@ private:
     QGeoCoordinate  _homePosition;
     QGeoCoordinate  _armedPosition;
 
-    UASInterface*   _mav = nullptr;
     int             _currentMessageCount = 0;
     int             _messageCount = 0;
     int             _currentErrorCount = 0;
@@ -1212,6 +1244,10 @@ private:
     ComponentInformationManager*    _componentInformationManager    = nullptr;
     VehicleObjectAvoidance*         _objectAvoidance                = nullptr;
     Autotune*                       _autotune                       = nullptr;
+
+#ifdef CONFIG_UTM_ADAPTER
+    UTMSPVehicle*                    _utmspVehicle                    = nullptr;
+#endif
 
     bool    _armed = false;         ///< true: vehicle is armed
     uint8_t _base_mode = 0;     ///< base_mode from HEARTBEAT
@@ -1411,6 +1447,7 @@ private:
     Fact _timeToHomeFact;
     Fact _missionItemIndexFact;
     Fact _headingToNextWPFact;
+    Fact _distanceToNextWPFact;
     Fact _headingToHomeFact;
     Fact _distanceToGCSFact;
     Fact _hobbsFact;
@@ -1471,6 +1508,7 @@ private:
     static const char* _timeToHomeFactName;
     static const char* _missionItemIndexFactName;
     static const char* _headingToNextWPFactName;
+    static const char* _distanceToNextWPFactName;
     static const char* _headingToHomeFactName;
     static const char* _distanceToGCSFactName;
     static const char* _hobbsFactName;

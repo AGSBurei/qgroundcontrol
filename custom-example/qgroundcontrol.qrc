@@ -4,7 +4,6 @@
 	</qresource>
 	<qresource prefix="/toolbar">
 		<file alias="ArmedIndicator.qml">../src/ui/toolbar/ArmedIndicator.qml</file>
-		<file alias="BatteryIndicator.qml">../src/ui/toolbar/BatteryIndicator.qml</file>
 		<file alias="GPSIndicator.qml">../src/ui/toolbar/GPSIndicator.qml</file>
 		<file alias="GPSRTKIndicator.qml">../src/ui/toolbar/GPSRTKIndicator.qml</file>
 		<file alias="JoystickIndicator.qml">../src/ui/toolbar/JoystickIndicator.qml</file>
@@ -62,8 +61,7 @@
 		<file alias="MainRootWindow.qml">../src/ui/MainRootWindow.qml</file>
 		<file alias="MavlinkConsolePage.qml">../src/AnalyzeView/MavlinkConsolePage.qml</file>
 		<file alias="MAVLinkInspectorPage.qml">../src/AnalyzeView/MAVLinkInspectorPage.qml</file>
-		<file alias="MavlinkSettings.qml">../src/ui/preferences/MavlinkSettings.qml</file>
-		<file alias="MicrohardSettings.qml">../src/Microhard/MicrohardSettings.qml</file>
+		<file alias="PX4LogTransferSettings.qml">../src/ui/preferences/PX4LogTransferSettings.qml</file>
 		<file alias="MissionCommandTreeEditorTestWindow.qml">../src/MissionManager/MissionCommandTreeEditorTestWindow.qml</file>
 		<file alias="MissionSettingsEditor.qml">../src/PlanView/MissionSettingsEditor.qml</file>
 		<file alias="MockLink.qml">../src/ui/preferences/MockLink.qml</file>
@@ -173,7 +171,7 @@
 		<file alias="QGroundControl/Controls/RallyPointMapVisuals.qml">../src/PlanView/RallyPointMapVisuals.qml</file>
 		<file alias="QGroundControl/Controls/RCChannelMonitor.qml">../src/QmlControls/RCChannelMonitor.qml</file>
 		<file alias="QGroundControl/Controls/RCToParamDialog.qml">../src/QmlControls/RCToParamDialog.qml</file>
-		<file alias="QGroundControl/Controls/RoundButton.qml">../src/QmlControls/RoundButton.qml</file>
+		<file alias="QGroundControl/Controls/QGCRoundButton.qml">../src/QmlControls/QGCRoundButton.qml</file>
 		<file alias="QGroundControl/Controls/SectionHeader.qml">../src/QmlControls/SectionHeader.qml</file>
 		<file alias="QGroundControl/Controls/SetupPage.qml">../src/AutoPilotPlugins/Common/SetupPage.qml</file>
 		<file alias="QGroundControl/Controls/SignalStrength.qml">../src/ui/toolbar/SignalStrength.qml</file>
@@ -278,7 +276,6 @@
 		<file alias="StructureScanEditor.qml">../src/PlanView/StructureScanEditor.qml</file>
 		<file alias="SurveyItemEditor.qml">../src/PlanView/SurveyItemEditor.qml</file>
 		<file alias="SyslinkComponent.qml">../src/AutoPilotPlugins/Common/SyslinkComponent.qml</file>
-		<file alias="TaisyncSettings.qml">../src/Taisync/TaisyncSettings.qml</file>
 		<file alias="TcpSettings.qml">../src/ui/preferences/TcpSettings.qml</file>
 		<file alias="test.qml">../src/test.qml</file>
 		<file alias="UdpSettings.qml">../src/ui/preferences/UdpSettings.qml</file>
@@ -308,6 +305,7 @@
 		<file alias="EditPositionDialog.FactMetaData.json">../src/QmlControls/EditPositionDialog.FactMetaData.json</file>
 		<file alias="FirmwareUpgrade.SettingsGroup.json">../src/Settings/FirmwareUpgrade.SettingsGroup.json</file>
 		<file alias="FlightMap.SettingsGroup.json">../src/Settings/FlightMap.SettingsGroup.json</file>
+		<file alias="FlightMode.SettingsGroup.json">../src/Settings/FlightMode.SettingsGroup.json</file>
 		<file alias="FlyView.SettingsGroup.json">../src/Settings/FlyView.SettingsGroup.json</file>
 		<file alias="FWLandingPattern.FactMetaData.json">../src/MissionManager/FWLandingPattern.FactMetaData.json</file>
 		<file alias="MavCmdInfoCommon.json">../src/MissionManager/MavCmdInfoCommon.json</file>

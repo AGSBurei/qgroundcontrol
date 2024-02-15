@@ -19,14 +19,17 @@
 #include "AutoConnectSettings.h"
 #include "VideoSettings.h"
 #include "FlightMapSettings.h"
+#include "FlightModeSettings.h"
 #include "RTKSettings.h"
 #include "FlyViewSettings.h"
+#include "MapsSettings.h"
 #include "PlanViewSettings.h"
 #include "BrandImageSettings.h"
 #include "OfflineMapsSettings.h"
 #include "APMMavlinkStreamRateSettings.h"
 #include "FirmwareUpgradeSettings.h"
 #include "ADSBVehicleManagerSettings.h"
+#include "BatteryIndicatorSettings.h"
 #include <QVariantList>
 #include "RemoteIDSettings.h"
 
@@ -43,6 +46,7 @@ public:
     Q_PROPERTY(QObject* autoConnectSettings             READ autoConnectSettings            CONSTANT)
     Q_PROPERTY(QObject* videoSettings                   READ videoSettings                  CONSTANT)
     Q_PROPERTY(QObject* flightMapSettings               READ flightMapSettings              CONSTANT)
+    Q_PROPERTY(QObject* flightModeSettings              READ flightModeSettings             CONSTANT)
     Q_PROPERTY(QObject* rtkSettings                     READ rtkSettings                    CONSTANT)
     Q_PROPERTY(QObject* flyViewSettings                 READ flyViewSettings                CONSTANT)
     Q_PROPERTY(QObject* planViewSettings                READ planViewSettings               CONSTANT)
@@ -50,6 +54,8 @@ public:
     Q_PROPERTY(QObject* offlineMapsSettings             READ offlineMapsSettings            CONSTANT)
     Q_PROPERTY(QObject* firmwareUpgradeSettings         READ firmwareUpgradeSettings        CONSTANT)
     Q_PROPERTY(QObject* adsbVehicleManagerSettings      READ adsbVehicleManagerSettings     CONSTANT)
+    Q_PROPERTY(QObject* batteryIndicatorSettings        READ batteryIndicatorSettings       CONSTANT)
+    Q_PROPERTY(QObject* mapsSettings                    READ mapsSettings       CONSTANT)
 #if !defined(NO_ARDUPILOT_DIALECT)
     Q_PROPERTY(QObject* apmMavlinkStreamRateSettings    READ apmMavlinkStreamRateSettings   CONSTANT)
 #endif
@@ -62,6 +68,7 @@ public:
     AutoConnectSettings*            autoConnectSettings         (void) { return _autoConnectSettings; }
     VideoSettings*                  videoSettings               (void) { return _videoSettings; }
     FlightMapSettings*              flightMapSettings           (void) { return _flightMapSettings; }
+    FlightModeSettings*             flightModeSettings          (void) { return _flightModeSettings; }
     RTKSettings*                    rtkSettings                 (void) { return _rtkSettings; }
     FlyViewSettings*                flyViewSettings             (void) { return _flyViewSettings; }
     PlanViewSettings*               planViewSettings            (void) { return _planViewSettings; }
@@ -69,6 +76,8 @@ public:
     OfflineMapsSettings*            offlineMapsSettings         (void) { return _offlineMapsSettings; }
     FirmwareUpgradeSettings*        firmwareUpgradeSettings     (void) { return _firmwareUpgradeSettings; }
     ADSBVehicleManagerSettings*     adsbVehicleManagerSettings  (void) { return _adsbVehicleManagerSettings; }
+    BatteryIndicatorSettings*       batteryIndicatorSettings    (void) { return _batteryIndicatorSettings; }
+    MapsSettings*                   mapsSettings                (void) { return _mapsSettings; }
 #if !defined(NO_ARDUPILOT_DIALECT)
     APMMavlinkStreamRateSettings*   apmMavlinkStreamRateSettings(void) { return _apmMavlinkStreamRateSettings; }
 #endif
@@ -79,6 +88,7 @@ private:
     AutoConnectSettings*            _autoConnectSettings;
     VideoSettings*                  _videoSettings;
     FlightMapSettings*              _flightMapSettings;
+    FlightModeSettings*             _flightModeSettings;
     RTKSettings*                    _rtkSettings;
     FlyViewSettings*                _flyViewSettings;
     PlanViewSettings*               _planViewSettings;
@@ -86,6 +96,8 @@ private:
     OfflineMapsSettings*            _offlineMapsSettings;
     FirmwareUpgradeSettings*        _firmwareUpgradeSettings;
     ADSBVehicleManagerSettings*     _adsbVehicleManagerSettings;
+    BatteryIndicatorSettings*       _batteryIndicatorSettings;
+    MapsSettings*                   _mapsSettings;
 #if !defined(NO_ARDUPILOT_DIALECT)
     APMMavlinkStreamRateSettings*   _apmMavlinkStreamRateSettings;
 #endif
