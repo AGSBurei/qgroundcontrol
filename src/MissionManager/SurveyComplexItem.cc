@@ -10,15 +10,19 @@
 
 #include "SurveyComplexItem.h"
 #include "JsonHelper.h"
-#include "MissionController.h"
 #include "QGCGeo.h"
 #include "QGCQGeoCoordinate.h"
 #include "SettingsManager.h"
 #include "AppSettings.h"
 #include "PlanMasterController.h"
+#include "MissionItem.h"
 #include "QGCApplication.h"
+#include "Vehicle.h"
+#include "QGCLoggingCategory.h"
 
-#include <QPolygonF>
+#include <QtGui/QPolygonF>
+#include <QtCore/QJsonArray>
+#include <QtCore/QLineF>
 
 QGC_LOGGING_CATEGORY(SurveyComplexItemLog, "SurveyComplexItemLog")
 
@@ -707,7 +711,7 @@ void SurveyComplexItem::_rebuildTransectsPhase1WorkerSinglePolygon(bool refly)
             // This avoids a nan calculation that comes out of convertGeoToNed
             x = y = 0;
         } else {
-            convertGeoToNed(vertex, tangentOrigin, &y, &x, &down);
+            QGCGeo::convertGeoToNed(vertex, tangentOrigin, y, x, down);
         }
         polygonPoints += QPointF(x, y);
         qCDebug(SurveyComplexItemLog) << "_rebuildTransectsPhase1 vertex:x:y" << vertex << polygonPoints.last().x() << polygonPoints.last().y();
@@ -798,9 +802,9 @@ void SurveyComplexItem::_rebuildTransectsPhase1WorkerSinglePolygon(bool refly)
         QGeoCoordinate          coord;
         QList<QGeoCoordinate>   transect;
 
-        convertNedToGeo(line.p1().y(), line.p1().x(), 0, tangentOrigin, &coord);
+        QGCGeo::convertNedToGeo(line.p1().y(), line.p1().x(), 0, tangentOrigin, coord);
         transect.append(coord);
-        convertNedToGeo(line.p2().y(), line.p2().x(), 0, tangentOrigin, &coord);
+        QGCGeo::convertNedToGeo(line.p2().y(), line.p2().x(), 0, tangentOrigin, coord);
         transect.append(coord);
 
         transects.append(transect);
@@ -926,7 +930,7 @@ void SurveyComplexItem::_rebuildTransectsPhase1WorkerSplitPolygons(bool refly)
             // This avoids a nan calculation that comes out of convertGeoToNed
             x = y = 0;
         } else {
-            convertGeoToNed(vertex, tangentOrigin, &y, &x, &down);
+            convertGeoToNed(vertex, tangentOrigin, y, x, down);
         }
         polygonPoints += QPointF(x, y);
         qCDebug(SurveyComplexItemLog) << "_rebuildTransectsPhase1 vertex:x:y" << vertex << polygonPoints.last().x() << polygonPoints.last().y();
@@ -1195,7 +1199,7 @@ void SurveyComplexItem::_rebuildTransectsFromPolygon(bool refly, const QPolygonF
     if (transitionPoint != nullptr) {
         QList<QGeoCoordinate>   transect;
         QGeoCoordinate          coord;
-        convertNedToGeo(transitionPoint->y(), transitionPoint->x(), 0, tangentOrigin, &coord);
+        QGCGeo::convertNedToGeo(transitionPoint->y(), transitionPoint->x(), 0, tangentOrigin, coord);
         transect.append(coord);
         transect.append(coord); //TODO
         transects.append(transect);
@@ -1205,9 +1209,9 @@ void SurveyComplexItem::_rebuildTransectsFromPolygon(bool refly, const QPolygonF
         QList<QGeoCoordinate>   transect;
         QGeoCoordinate          coord;
 
-        convertNedToGeo(line.p1().y(), line.p1().x(), 0, tangentOrigin, &coord);
+        QGCGeo::convertNedToGeo(line.p1().y(), line.p1().x(), 0, tangentOrigin, coord);
         transect.append(coord);
-        convertNedToGeo(line.p2().y(), line.p2().x(), 0, tangentOrigin, &coord);
+        QGCGeo::convertNedToGeo(line.p2().y(), line.p2().x(), 0, tangentOrigin, coord);
         transect.append(coord);
 
         transects.append(transect);

@@ -9,11 +9,8 @@
 
 
 #include "APMAutoPilotPlugin.h"
-#include "APMParameterMetaData.h"
-#include "APMFirmwarePlugin.h"
-#include "ArduCopterFirmwarePlugin.h"
-#include "ArduRoverFirmwarePlugin.h"
 #include "VehicleComponent.h"
+#include "Vehicle.h"
 #include "APMAirframeComponent.h"
 #include "APMFlightModesComponent.h"
 #include "APMRadioComponent.h"
@@ -25,16 +22,15 @@
 #include "APMCameraComponent.h"
 #include "APMLightsComponent.h"
 #include "APMSubFrameComponent.h"
-#include "APMFollowComponent.h"
 #include "ESP8266Component.h"
 #include "APMHeliComponent.h"
 #include "APMRemoteSupportComponent.h"
 #include "QGCApplication.h"
 #include "ParameterManager.h"
 
-#if !defined(NO_SERIAL_LINK) && !defined(__android__)
-#include <QSerialPortInfo>
-#endif
+// #if !defined(NO_SERIAL_LINK) && !defined(Q_OS_ANDROID)
+// #include <QSerialPortInfo>
+// #endif
 
 /// This is the AutoPilotPlugin implementatin for the MAV_AUTOPILOT_ARDUPILOT type.
 APMAutoPilotPlugin::APMAutoPilotPlugin(Vehicle* vehicle, QObject* parent)
@@ -59,7 +55,7 @@ APMAutoPilotPlugin::APMAutoPilotPlugin(Vehicle* vehicle, QObject* parent)
     , _followComponent          (nullptr)
 #endif
 {
-#if !defined(NO_SERIAL_LINK) && !defined(__android__)
+#if !defined(NO_SERIAL_LINK) && !defined(Q_OS_ANDROID)
     connect(vehicle->parameterManager(), &ParameterManager::parametersReadyChanged, this, &APMAutoPilotPlugin::_checkForBadCubeBlack);
 #endif
 }
@@ -200,7 +196,7 @@ QString APMAutoPilotPlugin::prerequisiteSetup(VehicleComponent* component) const
     return QString();
 }
 
-#if !defined(NO_SERIAL_LINK) && !defined(__android__)
+#if !defined(NO_SERIAL_LINK) && !defined(Q_OS_ANDROID)
 /// The following code is executed when the Vehicle is parameter ready. It checks for the service bulletin against Cube Blacks.
 void APMAutoPilotPlugin::_checkForBadCubeBlack(void)
 {

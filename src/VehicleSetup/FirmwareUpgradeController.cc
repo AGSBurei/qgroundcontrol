@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 #include "FirmwareUpgradeController.h"
+#include "PX4FirmwareUpgradeThread.h"
 #include "Bootloader.h"
 #include "QGCApplication.h"
 #include "QGCFileDownload.h"
@@ -18,15 +19,16 @@
 #include "QGCZlib.h"
 #include "JsonHelper.h"
 #include "LinkManager.h"
+#include "MultiVehicleManager.h"
+#include "FirmwareImage.h"
+#include "Fact.h"
+#include "QGCLoggingCategory.h"
 
-#include <QStandardPaths>
-#include <QRegularExpression>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QJsonArray>
-#include <QNetworkProxy>
-
-#include "zlib.h"
+#include <QtCore/QDir>
+#include <QtCore/QStandardPaths>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
+#include <QtCore/QJsonArray>
 
 const char* FirmwareUpgradeController::_manifestFirmwareJsonKey =               "firmware";
 const char* FirmwareUpgradeController::_manifestBoardIdJsonKey =                "board_id";
@@ -506,8 +508,7 @@ void FirmwareUpgradeController::_appendStatusLog(const QString& text, bool criti
 {
     Q_ASSERT(_statusLog);
     
-    QVariant returnedValue;
-    QVariant varText;
+    QString varText;
     
     if (critical) {
         varText = QString("<font color=\"yellow\">%1</font>").arg(text);
@@ -517,8 +518,7 @@ void FirmwareUpgradeController::_appendStatusLog(const QString& text, bool criti
     
     QMetaObject::invokeMethod(_statusLog,
                               "append",
-                              Q_RETURN_ARG(QVariant, returnedValue),
-                              Q_ARG(QVariant, varText));
+                              Q_ARG(QString, varText));
 }
 
 void FirmwareUpgradeController::_errorCancel(const QString& msg)

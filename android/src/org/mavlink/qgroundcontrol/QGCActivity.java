@@ -202,10 +202,18 @@ public class QGCActivity extends QtActivity
         filter.addAction(ACTION_USB_PERMISSION);
         filter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
-        _instance.registerReceiver(_instance._usbReceiver, filter);
+        if(android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            _instance.registerReceiver(_instance._usbReceiver, filter, RECEIVER_EXPORTED);
+        } else {
+            _instance.registerReceiver(_instance._usbReceiver, filter);
+        }
 
         // Create intent for usb permission request
-        _usbPermissionIntent = PendingIntent.getBroadcast(_instance, 0, new Intent(ACTION_USB_PERMISSION), 0);
+        int intentFlags = 0;
+        if (android.os.Build.VERSION.SDK_INT >= 23) {
+            intentFlags = PendingIntent.FLAG_IMMUTABLE;
+        }
+        _usbPermissionIntent = PendingIntent.getBroadcast(_instance, 0, new Intent(ACTION_USB_PERMISSION), intentFlags);
 
         // Workaround for QTBUG-73138
         if (_wifiMulticastLock == null)

@@ -10,15 +10,16 @@
 #include "AppSettings.h"
 #include "QGCPalette.h"
 #include "QGCApplication.h"
-#include "ParameterManager.h"
+#include "QGCMAVLink.h"
 
-#ifdef __android__
+#ifdef Q_OS_ANDROID
 #include "AndroidInterface.h"
 #endif
 
-#include <QQmlEngine>
-#include <QtQml>
-#include <QStandardPaths>
+#include <QtQml/QQmlEngine>
+#include <QtCore/QStandardPaths>
+#include <QtCore/QDir>
+#include <QtCore/QSettings>
 
 const char* AppSettings::parameterFileExtension =   "params";
 const char* AppSettings::planFileExtension =        "plan";
@@ -46,6 +47,7 @@ QList<int> AppSettings::_rgReleaseLanguages = {
     QLocale::AnyLanguage,  // System
     QLocale::Chinese,
     QLocale::English,
+    QLocale::Japanese,
     QLocale::Korean,
     QLocale::Azerbaijani,
 };
@@ -53,6 +55,7 @@ QList<int> AppSettings::_rgReleaseLanguages = {
 QList<int> AppSettings::_rgPartialLanguages = {
     QLocale::German,
     QLocale::Turkish,
+    QLocale::Ukrainian,
 };
 
 DECLARE_SETTINGGROUP(App, "")
@@ -85,7 +88,7 @@ DECLARE_SETTINGGROUP(App, "")
     // Instantiate savePath so we can check for override and setup default path if needed
 
     SettingsFact* savePathFact = qobject_cast<SettingsFact*>(savePath());
-    QString appName = qgcApp()->applicationName();
+    QString appName = QCoreApplication::applicationName();
 #ifdef __mobile__
     // Mobile builds always use the runtime generated location for savePath.
     bool userHasModifiedSavePath = false;
@@ -95,22 +98,22 @@ DECLARE_SETTINGGROUP(App, "")
 
     if (!userHasModifiedSavePath) {
 #ifdef __mobile__
-    #ifdef __ios__
+    #ifdef Q_OS_IOS
         // This will expose the directories directly to the File iOs app
         QDir rootDir = QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
         savePathFact->setRawValue(rootDir.absolutePath());
     #else
         QString rootDirPath;
-        #ifdef __android__
+        #ifdef Q_OS_ANDROID
         if (androidSaveToSDCard()->rawValue().toBool()) {
                 rootDirPath = AndroidInterface::getSDCardPath();
             qDebug() << "AndroidInterface::getSDCardPath();" << rootDirPath;
                 if (rootDirPath.isEmpty() || !QDir(rootDirPath).exists()) {
                     rootDirPath.clear();
-                    qgcApp()->showAppMessage(tr("Save to SD card specified for application data. But no SD card present. Using internal storage."));
+                    qgcApp()->showAppMessage(AppSettings::tr("Save to SD card specified for application data. But no SD card present. Using internal storage."));
                 } else if (!QFileInfo(rootDirPath).isWritable()) {
                     rootDirPath.clear();
-                    qgcApp()->showAppMessage(tr("Save to SD card specified for application data. But SD card is write protected. Using internal storage."));
+                    qgcApp()->showAppMessage(AppSettings::tr("Save to SD card specified for application data. But SD card is write protected. Using internal storage."));
                 }
             }
         #endif
@@ -143,7 +146,6 @@ DECLARE_SETTINGSFACT(AppSettings, defaultMissionItemAltitude)
 DECLARE_SETTINGSFACT(AppSettings, telemetrySave)
 DECLARE_SETTINGSFACT(AppSettings, telemetrySaveNotArmed)
 DECLARE_SETTINGSFACT(AppSettings, audioMuted)
-DECLARE_SETTINGSFACT(AppSettings, checkInternet)
 DECLARE_SETTINGSFACT(AppSettings, virtualJoystick)
 DECLARE_SETTINGSFACT(AppSettings, virtualJoystickAutoCenterThrottle)
 DECLARE_SETTINGSFACT(AppSettings, appFontPointSize)
@@ -162,7 +164,6 @@ DECLARE_SETTINGSFACT(AppSettings, defaultFirmwareType)
 DECLARE_SETTINGSFACT(AppSettings, gstDebugLevel)
 DECLARE_SETTINGSFACT(AppSettings, followTarget)
 DECLARE_SETTINGSFACT(AppSettings, apmStartMavlinkStreams)
-DECLARE_SETTINGSFACT(AppSettings, enableTaisyncVideo)
 DECLARE_SETTINGSFACT(AppSettings, disableAllPersistence)
 DECLARE_SETTINGSFACT(AppSettings, usePairing)
 DECLARE_SETTINGSFACT(AppSettings, saveCsvTelemetry)
@@ -170,6 +171,8 @@ DECLARE_SETTINGSFACT(AppSettings, firstRunPromptIdsShown)
 DECLARE_SETTINGSFACT(AppSettings, forwardMavlink)
 DECLARE_SETTINGSFACT(AppSettings, forwardMavlinkHostName)
 DECLARE_SETTINGSFACT(AppSettings, forwardMavlinkAPMSupportHostName)
+DECLARE_SETTINGSFACT(AppSettings, loginAirLink)
+DECLARE_SETTINGSFACT(AppSettings, passAirLink)
 
 DECLARE_SETTINGSFACT_NO_FUNC(AppSettings, indoorPalette)
 {

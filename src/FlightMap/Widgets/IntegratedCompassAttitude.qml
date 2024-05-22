@@ -16,12 +16,14 @@ import QGroundControl.FlightDisplay
 import QGroundControl.FlightMap
 
 Item {
-    width:  totalRadius * 2
-    height: width
+    id:             control
+    implicitWidth:  (compassRadius * 2) + attitudeSpacing + attitudeSize
+    implicitHeight: implicitWidth
 
-    property real totalRadius:          compassRadius + attitudeSpacing + attitudeSize
     property real attitudeSize:         rollIndicator.attitudeSize
     property real attitudeSpacing:      rollIndicator.attitudeSpacing
+    property real extraInset:           attitudeSize + attitudeSpacing
+    property real extraValuesWidth:     compassRadius
     property real defaultCompassRadius: (mainWindow.width * 0.15) / 2
     property real maxCompassRadius:     ScreenTools.defaultFontPixelHeight * 7 / 2
     property real compassRadius:        Math.min(defaultCompassRadius, maxCompassRadius)
@@ -29,88 +31,29 @@ Item {
     property var  vehicle:              globals.activeVehicle
     property var  qgcPal:               QGroundControl.globalPalette
 
+    property real _totalAttitudeSize: attitudeSize + attitudeSpacing
+
     IntegratedAttitudeIndicator {
         id:                     rollIndicator
-        anchors.fill:           parent
+        x:                      -_totalAttitudeSize
         attitudeAngleDegrees:   vehicle ? vehicle.roll.rawValue : 0
+        compassRadius:          control.compassRadius
     }
 
     IntegratedAttitudeIndicator {
-        anchors.fill:           parent
+        x:                      -_totalAttitudeSize
         attitudeAngleDegrees:   vehicle ? vehicle.pitch.rawValue : 0
+        compassRadius:          control.compassRadius
         transformOrigin:        Item.Center
         rotation:               90
     }
 
-    /*
-    // Roll background
-    Canvas {
-        anchors.fill: parent
-
-        onPaint: {
-            var centerX = width / 2
-            var centerY = height / 2
-            var ctx = getContext("2d")
-            ctx.reset()
-            ctx.strokeStyle = qgcPal.window
-            ctx.lineWidth = attitudeSize
-            ctx.beginPath()
-            ctx.arc(centerX, centerY, attitudeRadius, zeroRollRadians - maxRadians, zeroRollRadians + maxRadians)
-            ctx.stroke()
-        }
-    }
-
-    // Roll value indicator
-    Canvas {
-        id:             rollIndicator
-        anchors.fill:   parent
-        visible:        Math.abs(rollAngle) > 1
-
-        property real startRollRadiansRaw:      zeroRollRadians
-        property real endRollRadiansRaw:        zeroRollRadians + (rollAnglePercent * maxRadians)
-        property real startRollRadiansOrdered:  Math.min(startRollRadiansRaw, endRollRadiansRaw)
-        property real endRollRadiansOrdered:    Math.max(startRollRadiansRaw, endRollRadiansRaw)
-
-        onPaint: {
-            var centerX = width / 2
-            var centerY = height / 2
-            var ctx = getContext("2d")
-            ctx.reset()
-            ctx.strokeStyle = qgcPal.text
-            ctx.lineWidth = attitudeSize
-            ctx.beginPath()
-            ctx.arc(centerX, centerY, attitudeRadius, startRollRadiansOrdered, endRollRadiansOrdered)
-            ctx.stroke()
-        }
-    }
-
-    // Roll 0 value tick mark
-    Canvas {
-        anchors.fill: parent
-
-        onPaint: {
-            var centerX = width / 2
-            var centerY = height / 2
-            var ctx = getContext("2d")
-            ctx.reset()
-            ctx.strokeStyle = qgcPal.text
-            ctx.lineWidth = 2
-            ctx.beginPath()
-            ctx.moveTo(centerX, 0)
-            ctx.lineTo(centerX, attitudeSize)
-            ctx.stroke()
-        }
-    }
-    */
-
     Rectangle {
-        anchors.centerIn:   parent
-        width:              compassRadius * 2
-        height:             width
-        radius:             width / 2
-        color:              qgcPal.window
-
-        DeadMouseArea { anchors.fill: parent }
+        y:      _totalAttitudeSize
+        width:  compassRadius * 2
+        height: width
+        radius: width / 2
+        color:  qgcPal.window
 
         QGCCompassWidget {
             size:               parent.width - compassBorder

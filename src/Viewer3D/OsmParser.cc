@@ -1,10 +1,8 @@
 #include "OsmParser.h"
-
-#include <QThread>
-
+#include "QGCApplication.h"
+#include "SettingsManager.h"
+#include "OsmParserThread.h"
 #include "earcut.hpp"
-#include "Viewer3DUtils.h"
-
 
 typedef union {
     uint array[3];
@@ -19,195 +17,138 @@ typedef union {
 OsmParser::OsmParser(QObject *parent)
     : QObject{parent}
 {
-    _mainThread = new QThread(this);
+    _osmParserWorker = new OsmParserThread();
+    _singleStoreyBuildings.append("bungalow");
+    _singleStoreyBuildings.append("shed");
+    _singleStoreyBuildings.append("kiosk");
+    _singleStoreyBuildings.append("cabin");
 
-    this->moveToThread(_mainThread);
+    _doubleStoreyLeisure.append("stadium");
+    _doubleStoreyLeisure.append("sports_hall");
+    _doubleStoreyLeisure.append("sauna");
+
+    _viewer3DSettings = qgcApp()->toolbox()->settingsManager()->viewer3DSettings();
+
     _gpsRefSet = false;
-    _buildingLevelHeight = 0; // meters
+    _mapLoadedFlag = false;
+
+    setBuildingLevelHeight(_viewer3DSettings->buildingLevelHeight()->rawValue()); // meters
+    connect(_viewer3DSettings->buildingLevelHeight(), &Fact::rawValueChanged, this, &OsmParser::setBuildingLevelHeight);
+    connect(_osmParserWorker, &OsmParserThread::fileParsed, this, &OsmParser::osmParserFinished);
 }
 
 void OsmParser::setGpsRef(QGeoCoordinate gpsRef)
 {
     _gpsRefPoint = gpsRef;
     _gpsRefSet = true;
-    emit gpsRefChanged(_gpsRefPoint);
+    emit gpsRefChanged(_gpsRefPoint, _gpsRefSet);
+}
+
+void OsmParser::resetGpsRef()
+{
+    _gpsRefPoint = QGeoCoordinate(0, 0, 0);
+    _gpsRefSet = false;
+    emit gpsRefChanged(_gpsRefPoint, _gpsRefSet);
+}
+
+void OsmParser::setBuildingLevelHeight(QVariant value)
+{
+    _buildingLevelHeight = value.toFloat();
+    emit buildingLevelHeightChanged();
+}
+
+void OsmParser::osmParserFinished(bool isValid)
+{
+    if(isValid){
+        if(!_gpsRefSet) {
+            setGpsRef(_osmParserWorker->gpsRefPoint);
+
+            _coordinateMin = _osmParserWorker->coordinateMin;
+            _coordinateMax = _osmParserWorker->coordinateMax;
+        }
+        _mapLoadedFlag = true;
+        emit mapChanged();
+        qDebug() << _osmParserWorker->mapBuildings.size() << " Buildings loaded!!!";
+    }
 }
 
 void OsmParser::parseOsmFile(QString filePath)
 {
-    //The QDomDocument class represents an XML document.
-    QDomDocument xml_content;
-// Load xml file as raw data
-#ifdef __unix__
-    filePath = QString("/") + filePath;
-#endif
-    QFile f(filePath);
-    if (!f.open(QIODevice::ReadOnly )) {
-        // Error while loading file
-        qDebug() << "Error while loading OSM file" << filePath;
-        return;
-    }
-    qDebug("Loading the OSM file!!!");
-    // Set data into the QDomDocument before processing
-    xml_content.setContent(&f);
-    f.close();
-
-    // Extract the root markup
-    QDomElement root = xml_content.documentElement();
-
-    QDomElement component = root.firstChild().toElement();
-
-    _mapNodes.clear();
-    _mapBuildings.clear();
+    _osmParserWorker->mapNodes.clear();
+    _osmParserWorker->mapBuildings.clear();
     _gpsRefSet = false;
     _mapLoadedFlag = false;
+    resetGpsRef();
 
-    while(!component.isNull()) {
-        decodeNodeTags(component, _mapNodes);
-        decodeBuildings(component, _mapBuildings, _mapNodes, _gpsRefPoint);
-
-        component = component.nextSibling().toElement();
-    }
-    _mapLoadedFlag = true;
-    emit newMapLoaded();
-    qDebug() << _mapBuildings.size() << " Buildings added to the 3D viewer!!!";
-}
-
-void OsmParser::decodeNodeTags(QDomElement &xmlComponent, QMap<uint64_t, QGeoCoordinate> &nodeMap)
-{
-    int64_t id_tmp=0;
-    QGeoCoordinate gps_tmp;
-    QString attribute;
-    if (xmlComponent.tagName()=="node") {
-
-        attribute = xmlComponent.attribute("id","-1");
-        id_tmp = attribute.toLongLong();
-
-        attribute = xmlComponent.attribute("lat","0");
-        gps_tmp.setLatitude(attribute.toDouble());
-
-        attribute = xmlComponent.attribute("lon","0");
-        gps_tmp.setLongitude(attribute.toDouble());
-
-        gps_tmp.setAltitude(0);
-
-        if(id_tmp > 0) {
-            nodeMap.insert((uint64_t)id_tmp, gps_tmp);
-            if(!_gpsRefSet) {
-                setGpsRef(gps_tmp);
-            }
-        }
-    }
-}
-
-void OsmParser::decodeBuildings(QDomElement &xmlComponent, QMap<uint64_t, BuildingType> &buildingMap, QMap<uint64_t, QGeoCoordinate> &nodeMap, QGeoCoordinate gpsRef)
-{
-    int64_t id_tmp = xmlComponent.attribute("id","0").toLongLong();
-
-    BuildingType bld_tmp;
-    QGeoCoordinate gps_pt_tmp;
-    QVector3D local_pt_tmp;
-    std::vector<QGeoCoordinate> bld_points;
-    std::vector<QVector2D> bld_points_local;
-    double bld_x_max, bld_x_min, bld_y_max, bld_y_min;
-    bld_x_max = bld_y_max = -1e10;
-    bld_x_min = bld_y_min = 1e10;
-
-    int64_t ref_id;
-    QDomElement Child = xmlComponent.firstChild().toElement();
-    QString attribute;
-
-    if(id_tmp == 0) {
-        return;
-    }
-
-    bld_tmp.height = 0;
-    bld_tmp.levels = 0;
-
-    while (!Child.isNull()) {
-        if (Child.tagName()=="nd") {
-            ref_id = Child.attribute("ref","0").toLongLong();
-
-            if(ref_id > 0) {
-                gps_pt_tmp = nodeMap[ref_id];
-                bld_points.push_back(gps_pt_tmp);
-                local_pt_tmp = mapGpsToLocalPoint(gps_pt_tmp, gpsRef);
-                bld_points_local.push_back(QVector2D(local_pt_tmp.x(), local_pt_tmp.y()));
-
-                bld_x_max = (bld_x_max < local_pt_tmp.x())?(local_pt_tmp.x()):(bld_x_max);
-                bld_y_max = (bld_y_max < local_pt_tmp.y())?(local_pt_tmp.y()):(bld_y_max);
-                bld_x_min = (bld_x_min > local_pt_tmp.x())?(local_pt_tmp.x()):(bld_x_min);
-                bld_y_min = (bld_y_min > local_pt_tmp.y())?(local_pt_tmp.y()):(bld_y_min);
-            }
-        }else if (Child.tagName()=="tag") {
-            attribute = Child.attribute("k","0");
-            if(attribute == "building:levels") {
-                bld_tmp.levels = Child.attribute("v","0").toInt();
-            }else if(attribute == "height") {
-                bld_tmp.height = Child.attribute("v","0").toFloat();
-            }
-        }
-        Child = Child.nextSibling().toElement();
-    }
-
-    if(bld_points.size() > 2 && (bld_tmp.height > 0 || bld_tmp.levels > 0)) {
-//        float bld_height = (bld_tmp.height >= bld_tmp.levels * _buildingLevelHeight)?(bld_tmp.height):(bld_tmp.levels * _buildingLevelHeight);
-//        bld_tmp.height = bld_height;
-        bld_tmp.points_gps = bld_points;
-        bld_tmp.points_local = bld_points_local;
-        bld_tmp.bb_max = QVector2D(bld_x_max, bld_y_max);
-        bld_tmp.bb_min = QVector2D(bld_x_min, bld_y_min);
-        buildingMap.insert(id_tmp, bld_tmp);
-    }
+    _osmParserWorker->start(filePath);
 }
 
 QByteArray OsmParser::buildingToMesh()
 {
     QByteArray vertexData;
-    QMapIterator<uint64_t, BuildingType> ii(_mapBuildings);
+    QMapIterator<uint64_t, OsmParserThread::BuildingType_t> ii(_osmParserWorker->mapBuildings);
 
-    for (auto ii = _mapBuildings.begin(), end = _mapBuildings.end(); ii != end; ++ii) {
+    for (auto ii = _osmParserWorker->mapBuildings.begin(), end = _osmParserWorker->mapBuildings.end(); ii != end; ++ii) {
         float bld_height = 0;
+        // std::vector<std::array<float, 2> > bld_points;
+        // std::vector<std::vector<std::array<float, 2> > > polygon;
+
+        std::vector<std::array<float, 2> > all_bld_points;
         std::vector<std::array<float, 2> > bld_points;
         std::vector<std::vector<std::array<float, 2> > > polygon;
         std::vector<QVector3D> triangulated_mesh;
 
-//        bld_height = (ii.value().height >= ii.value().levels * _buildingLevelHeight)?(ii.value().height):(ii.value().levels * _buildingLevelHeight);
+        //        bld_height = (ii.value().height >= ii.value().levels * _buildingLevelHeight)?(ii.value().height):(ii.value().levels * _buildingLevelHeight);
 
         if(ii.value().height > 0){
             bld_height = ii.value().height;
         }else if(ii.value().levels > 0){
             bld_height = (float)(ii.value().levels) * _buildingLevelHeight;
+        }else{
+            continue;
         }
 
-        for(unsigned int jj=0; jj<ii.value().points_gps.size(); jj++) {
+        for(unsigned int jj=0; jj<ii.value().points_local.size(); jj++) {
             bld_points.push_back({ii.value().points_local[jj].x(), ii.value().points_local[jj].y()});
+            all_bld_points.push_back({ii.value().points_local[jj].x(), ii.value().points_local[jj].y()});
+        }
+        polygon.push_back(bld_points);
+
+        bld_points.clear();
+        for(unsigned int jj=0; jj<ii.value().points_local_inner.size(); jj++) {
+            bld_points.push_back({ii.value().points_local_inner[jj].x(), ii.value().points_local_inner[jj].y()});
+            all_bld_points.push_back({ii.value().points_local_inner[jj].x(), ii.value().points_local_inner[jj].y()});
+        }
+        if(bld_points.size() > 0){
+            polygon.push_back(bld_points);
         }
 
-        polygon.push_back(bld_points);
         std::vector<uint32_t> indices = mapbox::earcut<uint32_t>(polygon);
 
         for(uint i_i=0; i_i<indices.size(); i_i+=3) {
             // mesh for roof
             uint n_idx = indices[i_i];
-            triangulated_mesh.push_back(QVector3D(bld_points[n_idx][0], bld_points[n_idx][1], bld_height));
+            triangulated_mesh.push_back(QVector3D(all_bld_points[n_idx][0], all_bld_points[n_idx][1], bld_height));
             n_idx = indices[i_i+1];
-            triangulated_mesh.push_back(QVector3D(bld_points[n_idx][0], bld_points[n_idx][1], bld_height));
+            triangulated_mesh.push_back(QVector3D(all_bld_points[n_idx][0], all_bld_points[n_idx][1], bld_height));
             n_idx = indices[i_i+2];
-            triangulated_mesh.push_back(QVector3D(bld_points[n_idx][0], bld_points[n_idx][1], bld_height));
+            triangulated_mesh.push_back(QVector3D(all_bld_points[n_idx][0], all_bld_points[n_idx][1], bld_height));
 
             // mesh for floor
             n_idx = indices[i_i+2];
-            triangulated_mesh.push_back(QVector3D(bld_points[n_idx][0], bld_points[n_idx][1], 0));
+            triangulated_mesh.push_back(QVector3D(all_bld_points[n_idx][0], all_bld_points[n_idx][1], 0));
             n_idx = indices[i_i+1];
-            triangulated_mesh.push_back(QVector3D(bld_points[n_idx][0], bld_points[n_idx][1], 0));
+            triangulated_mesh.push_back(QVector3D(all_bld_points[n_idx][0], all_bld_points[n_idx][1], 0));
             n_idx = indices[i_i];
-            triangulated_mesh.push_back(QVector3D(bld_points[n_idx][0], bld_points[n_idx][1], 0));
+            triangulated_mesh.push_back(QVector3D(all_bld_points[n_idx][0], all_bld_points[n_idx][1], 0));
         }
 
         if(bld_height > 0) {
             trianglateWallsExtrudedPolygon(triangulated_mesh, ii.value().points_local, bld_height, 0, 0); // mesh for wall outside
             trianglateWallsExtrudedPolygon(triangulated_mesh, ii.value().points_local, bld_height, 1, 0);// mesh for wall inside
+
+            trianglateWallsExtrudedPolygon(triangulated_mesh, ii.value().points_local_inner, bld_height, 0, 0); // mesh for wall outside
+            trianglateWallsExtrudedPolygon(triangulated_mesh, ii.value().points_local_inner, bld_height, 1, 0);// mesh for wall inside
         }
 
         QByteArray vertexData_tmp(triangulated_mesh.size() * 3 * sizeof(float), Qt::Initialization::Uninitialized);

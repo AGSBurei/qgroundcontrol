@@ -1,19 +1,19 @@
+#pragma once
 
-#ifndef CITYMAPGEOMETRY_H
-#define CITYMAPGEOMETRY_H
-
-#include <QQuick3DGeometry>
-#include <QTimer>
-
-#include "OsmParser.h"
+#include <QtCore/QString>
+#include <QtQuick3D/QQuick3DGeometry>
 
 ///     @author Omid Esrafilian <esrafilian.omid@gmail.com>
+
+class Viewer3DSettings;
+class OsmParser;
 
 class CityMapGeometry : public QQuick3DGeometry
 {
     Q_OBJECT
+    Q_MOC_INCLUDE("OsmParser.h")
+
     Q_PROPERTY(QString modelName READ modelName WRITE setModelName NOTIFY modelNameChanged)
-    Q_PROPERTY(QString osmFilePath READ osmFilePath WRITE setOsmFilePath NOTIFY osmFilePathChanged)
     Q_PROPERTY(OsmParser* osmParser READ osmParser WRITE setOsmParser NOTIFY osmParserChanged)
 
 public:
@@ -24,25 +24,28 @@ public:
     void setModelName(QString modelName);
 
     QString osmFilePath() const {return _osmFilePath;}
-    void setOsmFilePath(QString filePath);
 
     OsmParser* osmParser(){ return _osmParser;}
     void setOsmParser(OsmParser* newOsmParser);
 
+    bool loadOsmMap();
+
 signals:
     void modelNameChanged();
     void osmFilePathChanged();
-    void gpsRefChanged();
     void osmParserChanged();
 
 private:
-    void updateData();
+    void updateViewer();
+    void clearViewer();
 
     QString _modelName;
     QString _osmFilePath;
     QByteArray _vertexData;
     OsmParser *_osmParser;
     bool _mapLoadedFlag;
-};
+    Viewer3DSettings* _viewer3DSettings = nullptr;
 
-#endif // CITYMAPGEOMETRY_H
+private slots:
+    void setOsmFilePath(QVariant value);
+};

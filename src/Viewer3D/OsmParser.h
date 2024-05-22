@@ -1,65 +1,61 @@
-#ifndef OSMPARSER_H
-#define OSMPARSER_H
+#pragma once
 
-#include "qqml.h"
-#include <QObject>
-#include <QtXml>
-#include <QFile>
-#include <QMap>
-#include <QVector3D>
-#include <QVector2D>
-#include "qgeocoordinate.h"
+#include <QtCore/QObject>
+#include <QtGui/QVector3D>
+#include <QtGui/QVector2D>
+#include <QtPositioning/QGeoCoordinate>
+#include <QtCore/QVariant>
 
 ///     @author Omid Esrafilian <esrafilian.omid@gmail.com>
 
+class Viewer3DSettings;
+class OsmParserThread;
+
 class OsmParser : public QObject
 {
-    struct BuildingType
-    {
-        std::vector<QGeoCoordinate> points_gps;
-        std::vector<QVector2D> points_local;
-        std::vector<QVector3D> triangulated_mesh;
-        QVector2D bb_max, bb_min; //bounding boxes
-        float height;
-        int levels;
-    };
-
     Q_OBJECT
 
-    Q_PROPERTY(float buildingLevelHeight READ buildingLevelHeight WRITE setBuildingLevelHeight NOTIFY buildingLevelHeightChanged)
+    // Q_PROPERTY(float buildingLevelHeight READ buildingLevelHeight WRITE setBuildingLevelHeight NOTIFY buildingLevelHeightChanged)
 
 public:
     explicit OsmParser(QObject *parent = nullptr);
 
+    bool mapLoaded(){return _mapLoadedFlag;}
     void setGpsRef(QGeoCoordinate gpsRef);
+    void resetGpsRef();
     QGeoCoordinate getGpsRef(){ return _gpsRefPoint;}
-    void setBuildingLevelHeight(float levelHeight){_buildingLevelHeight = levelHeight; emit buildingLevelHeightChanged();}
+
     float buildingLevelHeight(void){return _buildingLevelHeight;}
     void parseOsmFile(QString filePath);
-    void decodeNodeTags(QDomElement& xmlComponent, QMap<uint64_t, QGeoCoordinate> &nodeMap);
-    void decodeBuildings(QDomElement& xmlComponent, QMap<uint64_t, BuildingType > &buildingMap, QMap<uint64_t, QGeoCoordinate> &nodeMap, QGeoCoordinate gpsRef);
 
     QByteArray buildingToMesh();
 
     void trianglateWallsExtrudedPolygon(std::vector<QVector3D>& triangulatedMesh, std::vector<QVector2D> verticesCcw, float h, bool inverseOrder=0, bool duplicateStartEndPoint=0);
     void trianglateRectangle(std::vector<QVector3D>& triangulatedMesh, std::vector<QVector3D> verticesCcw, bool invertNormal);
+    std::pair<QGeoCoordinate, QGeoCoordinate> getMapBoundingBoxCoordinate(){ return std::pair(_coordinateMin, _coordinateMax);}
 
 private:
-    QThread* _mainThread;
+    OsmParserThread* _osmParserWorker;
     QGeoCoordinate _gpsRefPoint;
-    QMap<uint64_t, QGeoCoordinate> _mapNodes;
-    QMap<uint64_t, BuildingType> _mapBuildings;
+    QGeoCoordinate _coordinateMin, _coordinateMax; //Osm map bounding boxes in global coordinate
+
 
     bool _gpsRefSet;
     float _buildingLevelHeight;
     bool _mapLoadedFlag;
+    Viewer3DSettings* _viewer3DSettings = nullptr;
+    QList<QString> _singleStoreyBuildings;
+    QList<QString> _doubleStoreyLeisure;
 
 
 signals:
-    void gpsRefChanged(QGeoCoordinate newGpsRef);
-    void newMapLoaded();
+    void gpsRefChanged(QGeoCoordinate newGpsRef, bool isRefSet);
+    void mapChanged();
     void buildingLevelHeightChanged(void);
 
-};
+private slots:
+    void setBuildingLevelHeight(QVariant value);
+    void osmParserFinished(bool isValid);
 
-#endif // OSMPARSER_H
+
+};

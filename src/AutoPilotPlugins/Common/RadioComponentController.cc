@@ -14,9 +14,12 @@
 
 #include "RadioComponentController.h"
 #include "QGCApplication.h"
+#include "FactSystem.h"
+#include "Fact.h"
+#include "Vehicle.h"
+#include "QGCLoggingCategory.h"
 
-#include <QElapsedTimer>
-#include <QSettings>
+#include <QtCore/QSettings>
 
 QGC_LOGGING_CATEGORY(RadioComponentControllerLog, "RadioComponentControllerLog")
 QGC_LOGGING_CATEGORY(RadioComponentControllerVerboseLog, "RadioComponentControllerVerboseLog")
@@ -223,7 +226,7 @@ void RadioComponentController::_setupCurrentState(void)
 }
 
 /// Connected to Vehicle::rcChannelsChanged signal
-void RadioComponentController::_rcChannelsChanged(int channelCount, int pwmValues[Vehicle::cMaxRcChannels])
+void RadioComponentController::_rcChannelsChanged(int channelCount, int pwmValues[QGCMAVLink::maxRcChannels])
 {
     for (int channel=0; channel<channelCount; channel++) {
         int channelValue = pwmValues[channel];
@@ -797,7 +800,7 @@ void RadioComponentController::_startCalibration(void)
     _resetInternalCalibrationValues();
 
     // Let the mav known we are starting calibration. This should turn off motors and so forth.
-    _vehicle->startCalibration(Vehicle::CalibrationRadio);
+    _vehicle->startCalibration(QGCMAVLink::CalibrationRadio);
 
     _nextButton->setProperty("text", tr("Next"));
     _cancelButton->setEnabled(true);
@@ -1022,7 +1025,7 @@ void RadioComponentController::_signalAllAttitudeValueChanges(void)
 
 void RadioComponentController::copyTrims(void)
 {
-    _vehicle->startCalibration(Vehicle::CalibrationCopyTrims);
+    _vehicle->startCalibration(QGCMAVLink::CalibrationCopyTrims);
 }
 
 bool RadioComponentController::_px4Vehicle(void) const

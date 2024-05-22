@@ -11,10 +11,8 @@
 /// @brief Application Settings
 
 #pragma once
-#include <QTranslator>
 
 #include "SettingsGroup.h"
-#include "QGCMAVLink.h"
 
 /// Application Settings
 class AppSettings : public SettingsGroup
@@ -37,7 +35,6 @@ public:
     DEFINE_SETTINGFACT(telemetrySave)
     DEFINE_SETTINGFACT(telemetrySaveNotArmed)
     DEFINE_SETTINGFACT(audioMuted)
-    DEFINE_SETTINGFACT(checkInternet)
     DEFINE_SETTINGFACT(virtualJoystick)
     DEFINE_SETTINGFACT(virtualJoystickAutoCenterThrottle)
     DEFINE_SETTINGFACT(appFontPointSize)
@@ -56,7 +53,6 @@ public:
     DEFINE_SETTINGFACT(defaultFirmwareType)
     DEFINE_SETTINGFACT(gstDebugLevel)
     DEFINE_SETTINGFACT(followTarget)
-    DEFINE_SETTINGFACT(enableTaisyncVideo)
     DEFINE_SETTINGFACT(qLocaleLanguage)
     DEFINE_SETTINGFACT(disableAllPersistence)
     DEFINE_SETTINGFACT(usePairing)
@@ -65,6 +61,8 @@ public:
     DEFINE_SETTINGFACT(forwardMavlink)
     DEFINE_SETTINGFACT(forwardMavlinkHostName)
     DEFINE_SETTINGFACT(forwardMavlinkAPMSupportHostName)
+    DEFINE_SETTINGFACT(loginAirLink)
+    DEFINE_SETTINGFACT(passAirLink)
 
 
     // Although this is a global setting it only affects ArduPilot vehicle since PX4 automatically starts the stream from the vehicle side

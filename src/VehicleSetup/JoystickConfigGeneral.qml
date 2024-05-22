@@ -91,7 +91,8 @@ Item {
                 text:               qsTr("Selected peripheral:")
                 Layout.alignment:   Qt.AlignVCenter
             }
-            GridLayout {
+
+     GridLayout {
                 columns: 1
                 columnSpacing:      ScreenTools.defaultFontPixelWidth
                 rowSpacing:         ScreenTools.defaultFontPixelHeight
@@ -101,6 +102,30 @@ Item {
                         QGCLabel{
                             id: peripheralName
                             text: joystickManager.activePeripherals[index].name
+                        }
+                    }
+                }
+            } 
+            QGCComboBox {
+                id:                 joystickCombo
+                width:              ScreenTools.defaultFontPixelWidth * 40
+                Layout.alignment:   Qt.AlignVCenter
+                model:              joystickManager.joystickNames
+                onActivated:        joystickManager.activeJoystickName = textAt(index)
+                Component.onCompleted: {
+                    var index = joystickCombo.find(joystickManager.activeJoystickName)
+                    if (index === -1) {
+                        console.warn(qsTr("Active joystick name not in combo"), joystickManager.activeJoystickName)
+                    } else {
+                        joystickCombo.currentIndex = index
+                    }
+                }
+                Connections {
+                    target: joystickManager
+                    onAvailableJoysticksChanged: {
+                        var index = joystickCombo.find(joystickManager.activeJoystickName)
+                        if (index >= 0) {
+                            joystickCombo.currentIndex = index
                         }
                     }
                 }
@@ -217,7 +242,7 @@ Item {
 
                     Connections {
                         target:             _activeJoystick
-                        onAxisValues: {
+                        onAxisValues: (roll, pitch, yaw, throttle) => {
                             rollAxis.axisValue      = roll  * 32768.0
                             pitchAxis.axisValue     = pitch * 32768.0
                             yawAxis.axisValue       = yaw   * 32768.0

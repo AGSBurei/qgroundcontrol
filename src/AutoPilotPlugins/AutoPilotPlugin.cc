@@ -14,6 +14,9 @@
 #include "AutoPilotPlugin.h"
 #include "QGCApplication.h"
 #include "FirmwarePlugin.h"
+#include "Vehicle.h"
+#include "VehicleComponent.h"
+#include <QtCore/QCoreApplication>
 
 AutoPilotPlugin::AutoPilotPlugin(Vehicle* vehicle, QObject* parent)
     : QObject(parent)
@@ -75,6 +78,6 @@ void AutoPilotPlugin::parametersReadyPreChecks(void)
 
         // Take the user to Vehicle Summary
         qgcApp()->showSetupView();
-        qgcApp()->processEvents(QEventLoop::ExcludeUserInputEvents);
+        QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
     }
 }

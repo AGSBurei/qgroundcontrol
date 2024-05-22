@@ -22,6 +22,7 @@ import QGroundControl.ScreenTools
 import QGroundControl.Controllers
 import QGroundControl.ArduPilot
 import QGroundControl.QGCPositionManager
+import MAVLink
 
 SetupPage {
     id:             sensorsPage
@@ -166,8 +167,8 @@ SetupPage {
 
                 onCalibrationComplete: {
                     switch (calType) {
-                    case APMSensorsComponentController.CalTypeAccel:
-                    case APMSensorsComponentController.CalTypeOnboardCompass:
+                    case MAVLink.CalibrationAccel:
+                    case MAVLink.CalibrationMag:
                         _singleCompassSettingsComponentShowPriority = true
                         postOnboardCompassCalibrationComponent.createObject(mainWindow).open()
                         break
@@ -382,7 +383,7 @@ SetupPage {
 
                                 Component.onCompleted: selectPriorityfromParams()
 
-                                onActivated: {
+                                onActivated: (index) => {
                                     if (index == 3) {
                                         // User cannot select Not Set
                                         selectPriorityfromParams()

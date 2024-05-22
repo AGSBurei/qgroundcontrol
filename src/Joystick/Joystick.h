@@ -12,18 +12,19 @@
 
 #pragma once
 
-#include <QObject>
-#include <QThread>
-#include <atomic>
+#include "QGCMAVLink.h"
+#include "CustomActionManager.h"
 
-#include "QGCLoggingCategory.h"
-#include "Vehicle.h"
-#include "MultiVehicleManager.h"
-#include "JoystickMavCommand.h"
+#include <QtCore/QObject>
+#include <QtCore/QThread>
+#include <QtCore/QLoggingCategory>
 
 // JoystickLog Category declaration moved to QGCLoggingCategory.cc to allow access in Vehicle
 Q_DECLARE_LOGGING_CATEGORY(JoystickValuesLog)
 Q_DECLARE_METATYPE(GRIPPER_ACTIONS)
+
+class MultiVehicleManager;
+class Vehicle;
 
 /// Action assigned to button
 class AssignedButtonAction : public QObject {
@@ -303,7 +304,7 @@ protected:
     QStringList                     _availableActionTitles;
     MultiVehicleManager*            _multiVehicleManager = nullptr;
 
-    QList<JoystickMavCommand> _customMavCommands;
+    CustomActionManager _customActionManager;
 
     static const float  _minAxisFrequencyHz;
     static const float  _maxAxisFrequencyHz;

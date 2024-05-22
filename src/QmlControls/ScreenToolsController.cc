@@ -12,14 +12,14 @@
 /// @author Gus Grubba <gus@auterion.com>
 
 #include "ScreenToolsController.h"
-#include <QFontDatabase>
-#include <QScreen>
-#include <QFontMetrics>
-#include <QInputDevice>
+#include "QGCApplication.h"
+#include <QtGui/QFontDatabase>
+#include <QtGui/QFontMetrics>
+#include <QtGui/QInputDevice>
 
 #include "SettingsManager.h"
 
-#if defined(__ios__)
+#if defined(Q_OS_IOS)
 #include <sys/utsname.h>
 #endif
 
@@ -42,7 +42,7 @@ ScreenToolsController::hasTouch() const
 QString
 ScreenToolsController::iOSDevice() const
 {
-#if defined(__ios__)
+#if defined(Q_OS_IOS)
     struct utsname systemInfo;
     uname(&systemInfo);
     return QString(systemInfo.machine);
@@ -85,3 +85,7 @@ double ScreenToolsController::defaultFontDescent(int pointSize) const
 {
     return QFontMetrics(QFont(normalFontFamily(), pointSize)).descent();
 }
+
+#ifndef __mobile__
+bool ScreenToolsController::fakeMobile() const { return qgcApp()->fakeMobile(); }
+#endif

@@ -1,5 +1,5 @@
 ---
-qt_version: 6.6.1
+qt_version: 6.6.3
 ---
 
 # Getting Started with Source and Builds
@@ -78,6 +78,10 @@ To install Qt:
 
    Then install the following components:
 
+::: info
+To see a complete list of all available components in the installer _Select Components_ dialog, you might need to check the **"Archive"** box in the right column under the **"Categories"** tab, then click on **"Filter"**.
+:::
+
    - Under _Qt _{{ $frontmatter.qt_version }}_ select:
        - Depending on the OS you want to build for:
 			- **Windows**: _MSVC 2019 64 bit_
@@ -99,7 +103,7 @@ To install Qt:
 
 1. Install Additional Packages (Platform Specific)
 
-   - **Ubuntu:** `sudo apt-get install speech-dispatcher libudev-dev libsdl2-dev patchelf build-essential`
+   - **Ubuntu:** `bash ./qgroundcontrol/tools/setup/install-dependencies-debian.sh
    - **Fedora:** `sudo dnf install speech-dispatcher SDL2-devel SDL2 systemd-devel patchelf`
    - **Arch Linux:** `pacman -Sy speech-dispatcher patchelf`
    - **OSX** [Setup](https://doc.qt.io/qt-6/macos.html)
@@ -116,7 +120,12 @@ To install Qt:
 
 #### Building using Qt Creator {#qt-creator}
 
-1. Launch _Qt Creator_ and open the **qgroundcontrol.pro** project.
+ ::: info
+ QGC has switched to using cmake for builds. Qmake builds are currently deprecated and support will eventually be removed.
+ Only custom builds continue to use qmake at this time, since they have not yet been converted to cmake.
+ :::
+
+1. Launch _Qt Creator_, select Open Project and select the **CMakeLists.txt** file.
 1. In the **Projects** section, select the appropriate kit for your needs:
 
    - **OSX:** Desktop Qt {{ $frontmatter.qt_version }} clang 64 bit
@@ -144,10 +153,10 @@ When installing, select _Desktop development with C++_ as shown:
 ![Visual Studio 2019 - Select Desktop Environment with C++](../../../assets/dev_getting_started/visual_studio_select_features.png)
 
 ::: info
-Visual Studio is ONLY used to get the compiler. Actually building _QGroundControl_ should be done using [Qt Creator](#qt-creator) or [qmake](#qmake) as outlined below.
+Visual Studio is ONLY used to get the compiler. Actually building _QGroundControl_ should be done using [Qt Creator](#qt-creator) or [cmake](#cmake) as outlined below.
 :::
 
-#### Build using qmake on CLI {#qmake}
+#### Build using cmake on CLI {#cmake}
 
 Example commands to build a default QGC and run it afterwards:
 
@@ -157,40 +166,22 @@ Example commands to build a default QGC and run it afterwards:
    cd qgroundcontrol
    ```
 
-1. Create and enter a shadow build directory:
+1. Configure:
 
    ```sh
-   mkdir build
-   cd build
+	cmake -B build -G Ninja CMAKE_BUILD_TYPE=Debug
    ```
 
-1. Configure the build using the qmake script in the root of the repository:
+1. Build
 
    ```sh
-   qmake ../
+   cmake --build build --config Debug
    ```
-
-1. Run make to compile and link.
-   To accelerate the process things you can use the `-j{number of threads}` parameter.
-
-   ```sh
-   make -j12
-   ```
-
-   ::: info
-   You can also specify build time flags here.
-   For example, you could disable airmap inclusion using the command:
-
-   ```sh
-   DEFINES+=DISABLE_AIRMAP make build
-   ```
-
-   :::
 
 1. Run the QGroundcontrol binary that was just built:
 
    ```sh
-   ./staging/QGroundControl
+   ./build/QGroundControl
    ```
 
 ### Vagrant
@@ -211,14 +202,6 @@ Example commands to build a default QGC and run it afterwards:
 
 You can additionally create installation file(s) for _QGroundControl_ as part of the normal build process.
 
-::: tip
-On Windows you will need to first install [NSIS](https://sourceforge.net/projects/nsis/).
-:::
-
-To add support for installation file creation you need to add `CONFIG+=installer` to your project file, or when you call _qmake_.
-
-To do this in _Qt Creator_:
-
-- Open **Projects > Build > Build Steps > qmake > Additional arguments**.
-- Enter `CONFIG+=installer` as shown:
-  ![Installer](../../../assets/dev_getting_started/qt_project_installer.png)
+```sh
+cmake --install . --config Release
+```
