@@ -1,36 +1,28 @@
 cmake_minimum_required(VERSION 3.22.1)
 
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug;Release")
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
-endif()
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
-if(UNIX)
-    find_program(CCACHE_PROGRAM ccache)
-    if(CCACHE_PROGRAM)
-        message(STATUS "Using CCache")
-        set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
-        set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
-    endif()
-elseif(WIN32)
-    # find_program(SCCACHE_PROGRAM sccache)
-    if(SCCACHE_PROGRAM)
-        message(STATUS "Using SCCache")
-        set(CMAKE_C_COMPILER_LAUNCHER ${SCCACHE_PROGRAM})
-        set(CMAKE_CXX_COMPILER_LAUNCHER ${SCCACHE_PROGRAM})
-        if(MSVC)
-            string(APPEND CMAKE_CXX_FLAGS " /FS")
-        endif()
-    endif()
+#######################################################
+#                Custom Build Configuration
+#######################################################
+
+include(CustomOptions)
+
+if(IS_DIRECTORY ${CMAKE_SOURCE_DIR}/custom)
+    message(STATUS "Enabling custom build")
+    set(QGC_CUSTOM_BUILD ON)
+    include(${CMAKE_SOURCE_DIR}/custom/CustomOverrides.cmake)
 endif()
 
 #######################################################
 #                   Project Info
 #######################################################
 
+include(Git)
+
 project(QGroundControl
-    VERSION 5.0
-    DESCRIPTION "Open Source Ground Control App"
+    VERSION ${QGC_APP_VERSION}
+    DESCRIPTION ${QGC_APP_DESCRIPTION}
     HOMEPAGE_URL "https://qgroundcontrol.com/"
     LANGUAGES C CXX
 )
@@ -52,37 +44,61 @@ endif()
 #            CMake Configuration Options
 #######################################################
 
-include(FeatureSummary)
-include(FetchContent)
-include(ExternalProject)
 include(GNUInstallDirs)
 include(CMakeDependentOption)
+include(FetchContent)
 include(CMakePrintHelpers)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-if(LINUX)
-    set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/AppDir/usr)
-else()
-    set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/staging)
-endif()
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 set(CMAKE_INCLUDE_CURRENT_DIR OFF)
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
-cmake_print_variables(CMAKE_VERSION)
-cmake_print_variables(CMAKE_PREFIX_PATH)
-cmake_print_variables(CMAKE_HOST_SYSTEM_NAME)
-cmake_print_variables(CMAKE_HOST_SYSTEM_VERSION)
-cmake_print_variables(CMAKE_SYSTEM_NAME)
-cmake_print_variables(CMAKE_SYSTEM_VERSION)
-cmake_print_variables(CMAKE_CURRENT_SOURCE_DIR)
-cmake_print_variables(CMAKE_BUILD_TYPE)
-cmake_print_variables(CMAKE_TOOLCHAIN_FILE)
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug;Release")
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
+if(LINUX)
+    set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/AppDir/usr)
+else()
+    set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/staging)
+endif()
+
+if(UNIX)
+    find_program(CCACHE_PROGRAM ccache)
+    if(CCACHE_PROGRAM)
+        message(STATUS "Using CCache")
+        set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+        set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+    endif()
+elseif(WIN32)
+    # find_program(SCCACHE_PROGRAM sccache)
+    if(SCCACHE_PROGRAM)
+        message(STATUS "Using SCCache")
+        set(CMAKE_C_COMPILER_LAUNCHER ${SCCACHE_PROGRAM})
+        set(CMAKE_CXX_COMPILER_LAUNCHER ${SCCACHE_PROGRAM})
+        if(MSVC)
+            string(APPEND CMAKE_CXX_FLAGS " /FS")
+        endif()
+    endif()
+endif()
+
+cmake_print_variables(
+    CMAKE_VERSION
+    CMAKE_PREFIX_PATH
+    CMAKE_HOST_SYSTEM_NAME
+    CMAKE_HOST_SYSTEM_VERSION
+    CMAKE_SYSTEM_NAME
+    CMAKE_SYSTEM_VERSION
+    CMAKE_CURRENT_SOURCE_DIR
+    CMAKE_BUILD_TYPE
+    CMAKE_TOOLCHAIN_FILE
+)
 
 #######################################################
 #               Qt6 Configuration
@@ -145,6 +161,7 @@ find_package(Qt6
         QuickControls2
         QuickWidgets
         OpenGL
+        Sensors
         Sql
         Svg
         Test
@@ -181,8 +198,6 @@ if(QGC_BUILD_TESTING)
     add_compile_definitions(UNITTEST_BUILD) # TODO: QGC_UNITTEST_BUILD
 endif()
 
-# option(QGC_CUSTOM_BUILD "Enable Custom Build" OFF)
-
 # option(QGC_DISABLE_MAVLINK_INSPECTOR "Disable Mavlink Inspector" OFF) # This removes QtCharts which is GPL licensed
 
 cmake_dependent_option(QGC_DEBUG_QML "Build QGroundControl with QML debugging/profiling support." OFF "CMAKE_BUILD_TYPE STREQUAL Debug" OFF)
@@ -194,13 +209,31 @@ endif()
 cmake_dependent_option(QGC_NO_SERIAL_LINK "Build QGroundControl without Serial Support Support." OFF "NOT IOS" ON)
 
 #######################################################
+#                Custom Build Configuration
+#######################################################
+
+if(QGC_CUSTOM_BUILD)
+    add_subdirectory(custom)
+endif()
+
+if(QGC_DISABLE_APM_MAVLINK)
+    add_compile_definitions(NO_ARDUPILOT_DIALECT)
+endif()
+
+#######################################################
 #                QGroundControl Resources
 #######################################################
 
-set(QGC_RESOURCES
-    ${CMAKE_SOURCE_DIR}/qgcimages.qrc
-    ${CMAKE_SOURCE_DIR}/qgcresources.qrc
-    ${CMAKE_SOURCE_DIR}/qgroundcontrol.qrc
+if(NOT QGC_CUSTOM_BUILD)
+    # Custom builds can override the resources
+    list(APPEND QGC_RESOURCES
+        ${CMAKE_SOURCE_DIR}/qgcimages.qrc
+        ${CMAKE_SOURCE_DIR}/qgcresources.qrc
+        ${CMAKE_SOURCE_DIR}/qgroundcontrol.qrc
+    )
+endif()
+
+list(APPEND QGC_RESOURCES
     ${CMAKE_SOURCE_DIR}/resources/InstrumentValueIcons/InstrumentValueIcons.qrc
     ${CMAKE_SOURCE_DIR}/src/FirmwarePlugin/APM/APMResources.qrc
     ${CMAKE_SOURCE_DIR}/src/FirmwarePlugin/PX4/PX4Resources.qrc
@@ -214,14 +247,6 @@ endif()
 
 if(QGC_BUILD_TESTING)
     list(APPEND QGC_RESOURCES ${CMAKE_SOURCE_DIR}/test/UnitTest.qrc)
-endif()
-
-if(WIN32)
-    list(APPEND QGC_RESOURCES ${CMAKE_SOURCE_DIR}/deploy/windows/QGroundControl.rc)
-elseif(MACOS)
-    set(app_icon_macos "${CMAKE_SOURCE_DIR}/resources/icons/macx.icns")
-    set_source_files_properties(${app_icon_macos} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
-    list(APPEND QGC_RESOURCES ${app_icon_macos})
 endif()
 
 #######################################################
@@ -238,34 +263,46 @@ if(Qt6LinguistTools_FOUND)
     qt_add_translations(${PROJECT_NAME} TS_FILES ${TS_SOURCES}) # TODO: Update to new qt_add_translations form in Qt6.7
 endif()
 
-set_target_properties(${PROJECT_NAME} PROPERTIES QT_RESOURCE_PREFIX "/qgc")
-
-include(Git)
+set_target_properties(${PROJECT_NAME}
+    PROPERTIES
+        QT_RESOURCE_PREFIX "/qgc"
+        OUTPUT_NAME ${QGC_APP_NAME}
+)
 
 if(WIN32)
+    set(QGC_APP_ICON "${CMAKE_SOURCE_DIR}/deploy/windows/WindowsQGC.ico")
     set_target_properties(${PROJECT_NAME}
         PROPERTIES
             WIN32_EXECUTABLE TRUE
-            QT_TARGET_RC_ICONS "${CMAKE_SOURCE_DIR}/deploy/windows/WindowsQGC.ico"
+            QT_TARGET_RC_ICONS ${QGC_APP_ICON}
     )
     add_compile_definitions(_USE_MATH_DEFINES)
 elseif(MACOS)
+    set(QGC_APP_ICON "${QGC_MACOS_ICON_PATH}/macx.icns")
+    set_source_files_properties(${QGC_APP_ICON}
+        PROPERTIES
+            MACOSX_PACKAGE_LOCATION "Resources"
+    )
+    target_sources(${PROJECT_NAME} PRIVATE ${QGC_APP_ICON})
     set_target_properties(${PROJECT_NAME}
         PROPERTIES
             MACOSX_BUNDLE TRUE
             MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/deploy/mac/MacOSXBundleInfo.plist.in"
-            MACOSX_BUNDLE_BUNDLE_NAME "${PROJECT_NAME}"
+            MACOSX_BUNDLE_BUNDLE_NAME "${QGC_APP_NAME}"
             MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
-            MACOSX_BUNDLE_COPYRIGHT "Copyright (c) 2020 QGroundControl. All rights reserved."
-            MACOSX_BUNDLE_GUI_IDENTIFIER "io.mavlink.qgroundcontrol"
+            MACOSX_BUNDLE_COPYRIGHT "${QGC_APP_COPYRIGHT}"
+            MACOSX_BUNDLE_GUI_IDENTIFIER "${QGC_BUNDLE_ID}"
             MACOSX_BUNDLE_ICON_FILE "macx.icns"
-            MACOSX_BUNDLE_INFO_STRING "Open Source Ground Control App"
+            MACOSX_BUNDLE_INFO_STRING "${QGC_APP_DESCRIPTION}"
             MACOSX_BUNDLE_LONG_VERSION_STRING "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}"
             MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"
     )
 elseif(IOS)
     enable_language(OBJC)
-    set_target_properties(${PROJECT_NAME} PROPERTIES QT_IOS_LAUNCH_SCREEN ${CMAKE_SOURCE_DIR}/deploy/ios/QGCLaunchScreen.xib)
+    set_target_properties(${PROJECT_NAME}
+        PROPERTIES
+            QT_IOS_LAUNCH_SCREEN ${CMAKE_SOURCE_DIR}/deploy/ios/QGCLaunchScreen.xib
+    )
 elseif(ANDROID)
     FetchContent_Declare(android_openssl
         DOWNLOAD_EXTRACT_TIMESTAMP true
@@ -295,7 +332,7 @@ elseif(ANDROID)
             QT_ANDROID_PACKAGE_SOURCE_DIR ${CMAKE_SOURCE_DIR}/android
             QT_ANDROID_VERSION_NAME ${CMAKE_PROJECT_VERSION}
             QT_ANDROID_VERSION_CODE ${ANDROID_VERSION_CODE}
-            QT_QML_ROOT_PATH ${CMAKE_SOURCE_DIR}
+            # QT_QML_ROOT_PATH ${CMAKE_SOURCE_DIR}
     )
     # get_target_property(QGC_ANDROID_DEPLOY_FILE ${PROJECT_NAME} QT_ANDROID_DEPLOYMENT_SETTINGS_FILE)
 elseif(LINUX)
@@ -303,10 +340,10 @@ elseif(LINUX)
 endif()
 
 add_compile_definitions(
-    QGC_APPLICATION_NAME="QGroundControl"
-    QGC_ORG_NAME="QGroundControl.org"
-    QGC_ORG_DOMAIN="org.qgroundcontrol"
-    APP_VERSION_STR="${APP_VERSION_STR}"
+    QGC_APP_NAME="${QGC_APP_NAME}"
+    QGC_ORG_NAME="${QGC_ORG_NAME}"
+    QGC_ORG_DOMAIN="${QGC_ORG_DOMAIN}"
+    QGC_APP_VERSION_STR="${QGC_APP_VERSION_STR}"
 )
 
 add_subdirectory(src)
@@ -330,8 +367,9 @@ endif()
 #######################################################
 
 qt_import_plugins(${PROJECT_NAME}
-    INCLUDE
-        Qt6::QSvgPlugin
+    INCLUDE Qt6::QSvgPlugin
+    EXCLUDE_BY_TYPE geoservices
+    INCLUDE_BY_TYPE sqldrivers Qt6::QSQLiteDriverPlugin
 )
 
 install(

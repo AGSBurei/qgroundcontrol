@@ -13,8 +13,11 @@
 #include "QGCLoggingCategory.h"
 
 // AnalyzeView
+#include "ExifParserTest.h"
 // #include "MavlinkLogTest.h"
 // #include "LogDownloadTest.h"
+#include "PX4LogParserTest.h"
+#include "ULogParserTest.h"
 
 // Audio
 #include "AudioOutputTest.h"
@@ -31,6 +34,9 @@
 
 // Geo
 #include "GeoTest.h"
+
+// MAVLink
+#include "StatusTextHandlerTest.h"
 
 // MissionManager
 #include "CameraCalcTest.h"
@@ -95,8 +101,11 @@ QGC_LOGGING_CATEGORY(UnitTestsLog, "qgc.test.unittestlist")
 int runTests(bool stress, QStringView unitTestOptions)
 {
 	// AnalyzeView
+	UT_REGISTER_TEST(ExifParserTest)
 	// UT_REGISTER_TEST(MavlinkLogTest)
 	// UT_REGISTER_TEST(LogDownloadTest)
+	UT_REGISTER_TEST(PX4LogParserTest)
+	UT_REGISTER_TEST(ULogParserTest)
 
 	// Audio
 	UT_REGISTER_TEST(AudioOutputTest)
@@ -113,6 +122,9 @@ int runTests(bool stress, QStringView unitTestOptions)
 
 	// Geo
     // UT_REGISTER_TEST(GeoTest)
+
+    // MAVLink
+    UT_REGISTER_TEST(StatusTextHandlerTest)
 
 	// MissionManager
 	UT_REGISTER_TEST(CameraCalcTest)

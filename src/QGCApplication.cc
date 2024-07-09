@@ -38,7 +38,6 @@
 #include "UDPLink.h"
 #include "LinkManager.h"
 #include "MAVLinkProtocol.h"
-#include "UASMessageHandler.h"
 #include "QGCPalette.h"
 #include "QGCMapPalette.h"
 #include "QGCLoggingCategory.h"
@@ -175,20 +174,20 @@ QGCApplication::QGCApplication(int &argc, char* argv[], bool unitTesting)
     if (_runningUnitTests) {
         // We don't want unit tests to use the same QSettings space as the normal app. So we tweak the app
         // name. Also we want to run unit tests with clean settings every time.
-        applicationName = QStringLiteral("%1_unittest").arg(QGC_APPLICATION_NAME);
+        applicationName = QStringLiteral("%1_unittest").arg(QGC_APP_NAME);
     } else {
 #ifdef DAILY_BUILD
         // This gives daily builds their own separate settings space. Allowing you to use daily and stable builds
         // side by side without daily screwing up your stable settings.
-        applicationName = QStringLiteral("%1 Daily").arg(QGC_APPLICATION_NAME);
+        applicationName = QStringLiteral("%1 Daily").arg(QGC_APP_NAME);
 #else
-        applicationName = QGC_APPLICATION_NAME;
+        applicationName = QGC_APP_NAME;
 #endif
     }
     setApplicationName(applicationName);
     setOrganizationName(QGC_ORG_NAME);
     setOrganizationDomain(QGC_ORG_DOMAIN);
-    setApplicationVersion(QString(APP_VERSION_STR));
+    setApplicationVersion(QString(QGC_APP_VERSION_STR));
     #ifdef Q_OS_LINUX
         setWindowIcon(QIcon(":/res/resources/icons/qgroundcontrol.ico"));
     #endif
@@ -434,10 +433,7 @@ void QGCApplication::_initForNormalAppBoot()
     }
 
     // Safe to show popup error messages now that main window is created
-    UASMessageHandler* msgHandler = _toolbox->uasMessageHandler();
-    if (msgHandler) {
-        msgHandler->showErrorsInToolbar();
-    }
+    _showErrorsInToolbar = true;
 
     #ifdef Q_OS_LINUX
     #ifndef Q_OS_ANDROID
@@ -611,11 +607,11 @@ void QGCApplication::showCriticalVehicleMessage(const QString& message)
         return;
     }
     QObject* rootQmlObject = _rootQmlObject();
-    if (rootQmlObject) {
+    if (rootQmlObject && _showErrorsInToolbar) {
         QVariant varReturn;
         QVariant varMessage = QVariant::fromValue(message);
         QMetaObject::invokeMethod(rootQmlObject, "showCriticalVehicleMessage", Q_RETURN_ARG(QVariant, varReturn), Q_ARG(QVariant, varMessage));
-    } else if (runningUnitTests()) {
+    } else if (runningUnitTests() || !_showErrorsInToolbar) {
         // Unit tests can run without UI
         qCDebug(QGCApplicationLog) << "QGCApplication::showCriticalVehicleMessage unittest" << message;
     } else {
@@ -888,4 +884,41 @@ void QGCApplication::shutdown()
     qCDebug(QGCApplicationLog) << "Exit";
     // This is bad, but currently qobject inheritances are incorrect and cause crashes on exit without
     delete _qmlAppEngine;
+}
+
+QString QGCApplication::numberToString(quint64 number)
+{
+    return getCurrentLanguage().toString(number);
+}
+
+QString QGCApplication::bigSizeToString(quint64 size)
+{
+    QString result;
+    const QLocale kLocale = getCurrentLanguage();
+    if (size < 1024) {
+        result = kLocale.toString(size);
+    } else if (size < pow(1024, 2)) {
+        result = kLocale.toString(static_cast<double>(size) / 1024.0, 'f', 1) + "kB";
+    } else if (size < pow(1024, 3)) {
+        result = kLocale.toString(static_cast<double>(size) / pow(1024, 2), 'f', 1) + "MB";
+    } else if (size < pow(1024, 4)) {
+        result = kLocale.toString(static_cast<double>(size) / pow(1024, 3), 'f', 1) + "GB";
+    } else {
+        result = kLocale.toString(static_cast<double>(size) / pow(1024, 4), 'f', 1) + "TB";
+    }
+    return result;
+}
+
+QString QGCApplication::bigSizeMBToString(quint64 size_MB)
+{
+    QString result;
+    const QLocale kLocale = getCurrentLanguage();
+    if (size_MB < 1024) {
+        result = kLocale.toString(static_cast<double>(size_MB) , 'f', 0) + " MB";
+    } else if(size_MB < pow(1024, 2)) {
+        result = kLocale.toString(static_cast<double>(size_MB) / 1024.0, 'f', 1) + " GB";
+    } else {
+        result = kLocale.toString(static_cast<double>(size_MB) / pow(1024, 2), 'f', 2) + " TB";
+    }
+    return result;
 }

@@ -21,8 +21,11 @@ function(add_qgc_test test_name)
 endfunction()
 
 add_subdirectory(AnalyzeView)
+add_qgc_test(ExifParserTest)
 # add_qgc_test(LogDownloadTest)
 # add_qgc_test(MavlinkLogTest)
+add_qgc_test(PX4LogParserTest)
+add_qgc_test(ULogParserTest)
 
 add_subdirectory(Audio)
 add_qgc_test(AudioOutputTest)
@@ -41,6 +44,7 @@ add_subdirectory(Geo)
 add_qgc_test(GeoTest)
 
 add_subdirectory(MAVLink)
+add_qgc_test(StatusTextHandlerTest)
 
 add_subdirectory(MissionManager)
 add_qgc_test(CameraCalcTest)

@@ -29,17 +29,16 @@
 #include "APMParameterMetaData.h"
 #include "LinkManager.h"
 #include "Vehicle.h"
+#include <StatusTextHandler.h>
 #include "MAVLinkProtocol.h"
 #include "QGCLoggingCategory.h"
+#include <DeviceInfo.h>
 
 #include <QtNetwork/QTcpSocket>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QRegularExpressionMatch>
 
 QGC_LOGGING_CATEGORY(APMFirmwarePluginLog, "APMFirmwarePluginLog")
-
-const char* APMFirmwarePlugin::_artooIP =                   "10.1.1.1"; ///< IP address of ARTOO controller
-const int   APMFirmwarePlugin::_artooVideoHandshakePort =   5502;       ///< Port for video handshake on ARTOO controller
 
 /*
  * @brief APMCustomMode encapsulates the custom modes for APM
@@ -264,7 +263,7 @@ bool APMFirmwarePlugin::_handleIncomingStatusText(Vehicle* /*vehicle*/, mavlink_
     // APM user facing calibration messages come through as high severity, we need to parse them out
     // and lower the severity on them so that they don't pop in the users face.
 
-    const QString messageText = _getMessageText(message);
+    const QString messageText = StatusTextHandler::getMessageText(*message);
     if (messageText.contains("Place vehicle") || messageText.contains("Calibration successful")) {
         _adjustCalibrationMessageSeverity(message);
         return true;
@@ -356,18 +355,6 @@ void APMFirmwarePlugin::adjustOutgoingMavlinkMessageThreadSafe(Vehicle* vehicle,
         _handleOutgoingParamSetThreadSafe(vehicle, outgoingLink, message);
         break;
     }
-}
-
-QString APMFirmwarePlugin::_getMessageText(mavlink_message_t* message) const
-{
-    QByteArray b;
-
-    b.resize(MAVLINK_MSG_STATUSTEXT_FIELD_TEXT_LEN+1);
-    mavlink_msg_statustext_get_text(message, b.data());
-
-    // Ensure NUL-termination
-    b[b.length()-1] = '\0';
-    return QString::fromLocal8Bit(b, std::strlen(b.constData()));
 }
 
 void APMFirmwarePlugin::_setInfoSeverity(mavlink_message_t* message) const
@@ -931,7 +918,7 @@ void APMFirmwarePlugin::guidedModeTakeoff(Vehicle* vehicle, double altitudeRel)
     _guidedModeTakeoff(vehicle, altitudeRel);
 }
 
-double APMFirmwarePlugin::minimumTakeoffAltitude(Vehicle* vehicle)
+double APMFirmwarePlugin::minimumTakeoffAltitudeMeters(Vehicle* vehicle)
 {
     double minTakeoffAlt = 0;
     QString takeoffAltParam(vehicle->vtol() ? QStringLiteral("Q_RTL_ALT") : QStringLiteral("PILOT_TKOFF_ALT"));
@@ -942,7 +929,7 @@ double APMFirmwarePlugin::minimumTakeoffAltitude(Vehicle* vehicle)
     }
 
     if (minTakeoffAlt == 0) {
-        minTakeoffAlt = FirmwarePlugin::minimumTakeoffAltitude(vehicle);
+        minTakeoffAlt = FirmwarePlugin::minimumTakeoffAltitudeMeters(vehicle);
     }
 
     return minTakeoffAlt;
@@ -961,7 +948,7 @@ bool APMFirmwarePlugin::_guidedModeTakeoff(Vehicle* vehicle, double altitudeRel)
         return false;
     }
 
-    double takeoffAltRel = minimumTakeoffAltitude(vehicle);
+    double takeoffAltRel = minimumTakeoffAltitudeMeters(vehicle);
     if (!qIsNaN(altitudeRel) && altitudeRel > takeoffAltRel) {
         takeoffAltRel = altitudeRel;
     }
@@ -1206,4 +1193,119 @@ void APMFirmwarePlugin::guidedModeChangeEquivalentAirspeedMetersSecond(Vehicle* 
 QVariant APMFirmwarePlugin::mainStatusIndicatorContentItem(const Vehicle*) const
 {
     return QVariant::fromValue(QUrl::fromUserInput("qrc:/APM/Indicators/APMMainStatusIndicatorContentItem.qml"));
+}
+
+void APMFirmwarePlugin::_setBaroGndTemp(Vehicle* vehicle, qreal temp)
+{
+    if (!vehicle) {
+        return;
+    }
+
+    const QString bareGndTemp("BARO_GND_TEMP");
+
+    if (vehicle->parameterManager()->parameterExists(FactSystem::defaultComponentId, bareGndTemp)) {
+        Fact* const param = vehicle->parameterManager()->getParameter(FactSystem::defaultComponentId, bareGndTemp);
+        param->setRawValue(temp);
+    }
+}
+
+void APMFirmwarePlugin::_setBaroAltOffset(Vehicle* vehicle, qreal offset)
+{
+    if (!vehicle) {
+        return;
+    }
+
+    const QString baroAltOffset("BARO_ALT_OFFSET");
+
+    if (vehicle->parameterManager()->parameterExists(FactSystem::defaultComponentId, baroAltOffset)) {
+        Fact* const param = vehicle->parameterManager()->getParameter(FactSystem::defaultComponentId, baroAltOffset);
+        param->setRawValue(offset);
+    }
+}
+
+#define ALT_METERS                          (145366.45 * 0.3048)
+#define ALT_EXP                             (1. / 5.225)
+#define SEA_PRESSURE                        101325.
+#define CELSIUS_TO_KELVIN(celsius)          (celsius + 273.15)
+#define ALT_OFFSET_P(pressure)              (1. - pow((pressure / SEA_PRESSURE), ALT_EXP))
+#define ALT_OFFSET_PT(pressure,temperature) ((ALT_OFFSET_P(pressure) * CELSIUS_TO_KELVIN(temperature)) / 0.0065)
+
+qreal APMFirmwarePlugin::calcAltOffsetPT(uint32_t atmospheric1, qreal temperature1, uint32_t atmospheric2, qreal temperature2)
+{
+    const qreal alt1 = ALT_OFFSET_PT(atmospheric1, temperature1);
+    const qreal alt2 = ALT_OFFSET_PT(atmospheric2, temperature2);
+    const qreal offset = alt1 - alt2;
+    return offset;
+}
+
+qreal APMFirmwarePlugin::calcAltOffsetP(uint32_t atmospheric1, uint32_t atmospheric2)
+{
+    const qreal alt1 = ALT_OFFSET_P(atmospheric1) * ALT_METERS;
+    const qreal alt2 = ALT_OFFSET_P(atmospheric2) * ALT_METERS;
+    const qreal offset = alt1 - alt2;
+    return offset;
+}
+
+QPair<QMetaObject::Connection,QMetaObject::Connection> APMFirmwarePlugin::startCompensatingBaro(Vehicle* vehicle)
+{
+    // TODO: Running Average?
+    const QMetaObject::Connection baroPressureUpdater = QObject::connect(QGCDeviceInfo::QGCPressure::instance(), &QGCDeviceInfo::QGCPressure::pressureUpdated, vehicle, [vehicle](qreal pressure, qreal temperature){
+        if (!vehicle || !vehicle->flying()) {
+            return;
+        }
+
+        if (qFuzzyIsNull(pressure)) {
+            return;
+        }
+
+        const qreal initialPressure = vehicle->getInitialGCSPressure();
+        if (qFuzzyIsNull(initialPressure)) {
+            return;
+        }
+
+        const qreal initialTemperature = vehicle->getInitialGCSTemperature();
+
+        qreal offset = 0.;
+        if (!qFuzzyIsNull(temperature) && !qFuzzyIsNull(initialTemperature)) {
+            offset = APMFirmwarePlugin::calcAltOffsetPT(initialPressure, initialTemperature, pressure, temperature);
+        } else {
+            offset = APMFirmwarePlugin::calcAltOffsetP(initialPressure, pressure);
+        }
+
+        APMFirmwarePlugin::_setBaroAltOffset(vehicle, offset);
+    });
+
+    const QMetaObject::Connection baroTempUpdater = connect(QGCDeviceInfo::QGCAmbientTemperature::instance(), &QGCDeviceInfo::QGCAmbientTemperature::temperatureUpdated, vehicle, [vehicle](qreal temperature){
+        if (!vehicle || !vehicle->flying()) {
+           return;
+        }
+
+        if (qFuzzyIsNull(temperature)) {
+            return;
+        }
+
+        APMFirmwarePlugin::_setBaroGndTemp(vehicle, temperature);
+    });
+
+    return QPair<QMetaObject::Connection,QMetaObject::Connection>(baroPressureUpdater, baroTempUpdater);
+}
+
+bool APMFirmwarePlugin::stopCompensatingBaro(const Vehicle* vehicle, QPair<QMetaObject::Connection,QMetaObject::Connection> updaters)
+{
+    Q_UNUSED(vehicle);
+    /*if (!vehicle) {
+        return false;
+    }*/
+
+    bool result = false;
+
+    if (updaters.first) {
+        result |= QObject::disconnect(updaters.first);
+    }
+
+    if (updaters.second) {
+        result |= QObject::disconnect(updaters.second);
+    }
+
+    return result;
 }
