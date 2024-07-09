@@ -7,18 +7,18 @@
  *
  ****************************************************************************/
 
-import QtQuick
-import QtQuick.Controls
-import QtQuick.Dialogs
-import QtQuick.Layouts
+import QtQuick                      2.11
+import QtQuick.Controls             2.4
+import QtQuick.Dialogs              1.3
+import QtQuick.Layouts              1.11
 
-import QGroundControl
-import QGroundControl.Palette
-import QGroundControl.Controls
-import QGroundControl.ScreenTools
-import QGroundControl.Controllers
-import QGroundControl.FactSystem
-import QGroundControl.FactControls
+import QGroundControl               1.0
+import QGroundControl.Palette       1.0
+import QGroundControl.Controls      1.0
+import QGroundControl.ScreenTools   1.0
+import QGroundControl.Controllers   1.0
+import QGroundControl.FactSystem    1.0
+import QGroundControl.FactControls  1.0
 
 Item {
     width:  mainCol.width  + (ScreenTools.defaultFontPixelWidth  * 2)
@@ -26,24 +26,8 @@ Item {
 
     readonly property real axisMonitorWidth: ScreenTools.defaultFontPixelWidth * 32
 
-    property bool _buttonsOnly:(function(){
-        var isButtonOnly = false
-        for(var i = 0; i < _activeJoysticksList.lenght; i++){
-            if(_activeJoysticksList[i].axisCount === 0){
-                isButtonOnly = true
-            }
-        }
-        return isButtonOnly
-    })
-    property bool _requiresCalibration:(function(){
-        var isCalibrated = false
-        for(var i = 0; i < _activeJoysticksList.lenght; i++){
-            if(!_activeJoysticksList[i].calibrated && !_buttonsOnly){
-                isCalibrated = true
-            }
-        }
-        return isCalibrated
-    })
+    property bool _buttonsOnly:         _activeJoystick.axisCount == 0
+    property bool _requiresCalibration: !_activeJoystick.calibrated && !_buttonsOnly
 
     Column {
         id:                 mainCol
@@ -56,7 +40,7 @@ Item {
             //---------------------------------------------------------------------
             //-- Enable Joystick
             QGCLabel {
-                text:               _requiresCalibration ? qsTr("Enable not allowed (Calibrate First)") : qsTr("Enable peripherals input")
+                text:               _requiresCalibration ? qsTr("Enable not allowed (Calibrate First)") : qsTr("Enable joystick input")
                 Layout.alignment:   Qt.AlignVCenter
                 Layout.minimumWidth: ScreenTools.defaultFontPixelWidth * 36
             }
@@ -86,26 +70,11 @@ Item {
                 }
             }
             //---------------------------------------------------------------------
-            //-- Selected peripheral list
+            //-- Joystick Selector
             QGCLabel {
-                text:               qsTr("Selected peripheral:")
+                text:               qsTr("Active joystick:")
                 Layout.alignment:   Qt.AlignVCenter
             }
-
-     GridLayout {
-                columns: 1
-                columnSpacing:      ScreenTools.defaultFontPixelWidth
-                rowSpacing:         ScreenTools.defaultFontPixelHeight
-                Repeater {
-                    model: joystickManager.activePeripherals
-                    Row {
-                        QGCLabel{
-                            id: peripheralName
-                            text: joystickManager.activePeripherals[index].name
-                        }
-                    }
-                }
-            } 
             QGCComboBox {
                 id:                 joystickCombo
                 width:              ScreenTools.defaultFontPixelWidth * 40
@@ -242,7 +211,7 @@ Item {
 
                     Connections {
                         target:             _activeJoystick
-                        onAxisValues: (roll, pitch, yaw, throttle) => {
+                        onAxisValues: {
                             rollAxis.axisValue      = roll  * 32768.0
                             pitchAxis.axisValue     = pitch * 32768.0
                             yawAxis.axisValue       = yaw   * 32768.0
@@ -264,7 +233,7 @@ Item {
                     anchors.centerIn:   parent
                     Connections {
                         target:     _activeJoystick
-                        onRawButtonPressedChanged: (index, pressed) => {
+                        onRawButtonPressedChanged: {
                             if (buttonMonitorRepeater.itemAt(index)) {
                                 buttonMonitorRepeater.itemAt(index).pressed = pressed
                             }

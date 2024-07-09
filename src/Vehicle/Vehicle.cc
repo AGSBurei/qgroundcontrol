@@ -1761,6 +1761,11 @@ bool Vehicle::joystickEnabled() const
     return _joystickEnabled;
 }
 
+bool Vehicle::peripheralsEnabled() const
+{
+    return _peripheralsEnabled;
+}
+
 void Vehicle::setJoystickEnabled(bool enabled)
 {
     if (enabled){
@@ -1780,6 +1785,10 @@ void Vehicle::setJoystickEnabled(bool enabled)
     }
 
     emit joystickEnabledChanged(_joystickEnabled);
+}
+
+void Vehicle::setPeripheralsEnabled(bool enabled) {
+
 }
 
 void Vehicle::_activeVehicleChanged(Vehicle *newActiveVehicle)
