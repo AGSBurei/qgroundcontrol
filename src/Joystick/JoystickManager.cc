@@ -247,6 +247,22 @@ void JoystickManager::setActivePeripherals(QList<Joystick*> peripherals)
     }
 }
 
+void JoystickManager::disablePeripheral(Joystick* joystick) {
+    Joystick* peripheral;
+    if(_activePeripheralsList.contains(joystick)){
+        int i = _activePeripheralsList.indexOf(joystick);
+        peripheral = _activePeripheralsList[i];
+        qCDebug(JoystickManagerLog) << "removing:" << _activePeripheralsList[i]->name();
+        _activePeripheralsList[i]->stopPolling();
+        _activePeripheralsList.removeAt(i);
+
+        emit activePeripheralsChanged(_activePeripheralsList);
+        emit disablePeripheralNameChanged(peripheral->name());
+    }else{
+        qCWarning(JoystickManagerLog) << "target for deactivation does not exist";
+    }
+}
+
 QVariantList JoystickManager::joysticks(void)
 {
     QVariantList list;
@@ -285,13 +301,22 @@ bool JoystickManager::setActiveJoystickName(const QString& name)
 }
 
 bool JoystickManager::setActivePeripheralName(const QString& name)
-
 {
     if (_name2JoystickMap.contains(name)) {
         setActivePeripherals(_name2JoystickMap[name]);
         return true;
     } else {
         qCWarning(JoystickManagerLog) << "Set active not in map" << name;
+        return false;
+    }
+}
+
+bool JoystickManager::disablePeripheralName(const QString& name){
+    if (_name2JoystickMap.contains(name)) {
+        disablePeripheral(_name2JoystickMap[name]);
+        return true;
+    } else {
+        qCWarning(JoystickManagerLog) << "Disabled not in map" << name;
         return false;
     }
 }

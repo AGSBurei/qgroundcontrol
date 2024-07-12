@@ -59,7 +59,16 @@ Item {
                                             console.log(lst[i]+" :is set active")
                                         }
                                     }
-                                }else{
+                                }
+                                if(!checked)
+                                {
+                                    joystickManager.disablePeripheralName = joystickManager.joystickNames[index]
+                                    var lst = joystickManager.activePeripherals
+                                    if(lst){
+                                        for(var i = 0; i < lst.length; i++){
+                                            console.log(lst[i]+" :is set active")
+                                        }
+                                    }
                                 }
                             }
                             Component.onCompleted: {
@@ -69,7 +78,7 @@ Item {
                                         if(list[i].name === joystickManager.joystickNames[index])
                                         {
                                             peripheralStatus.checked = true;
-                                            console.log(lst[i]+" :is set active")
+                                            console.log(list[i]+" :is set active")
                                         }
                                     }
                                 }

@@ -41,6 +41,7 @@ public:
 
     Q_PROPERTY(QList<Joystick*> activePeripherals READ activePeripherals WRITE setActivePeripherals NOTIFY activePeripheralsNamesChanged)
     Q_PROPERTY(QString activePeripheralName READ activePeripheralName WRITE setActivePeripheralName NOTIFY activePeripheralsNamesChanged)
+    Q_PROPERTY(QString disablePeripheralName READ activePeripheralName WRITE disablePeripheralName NOTIFY disablePeripheralNameChanged)
 
     /// List of available joysticks
     QVariantList joysticks();
@@ -58,6 +59,7 @@ public:
     ///Set active peripherals
     void setActivePeripherals(Joystick* joystick);
     void setActivePeripherals(QList<Joystick*> peripherals);
+    void disablePeripheral(Joystick* joystick);
 
     QString activeJoystickName(void);
     QString activePeripheralName(void);
@@ -65,7 +67,7 @@ public:
 
     bool setActiveJoystickName(const QString& name);
     bool setActivePeripheralName(const QString& name);
-
+    bool disablePeripheralName(const QString& name);
     void restartJoystickCheckTimer(void);
 
     // Override from QGCTool
@@ -79,6 +81,7 @@ signals:
     void activePeripheralsChanged(QList<Joystick*> joysticksList);
     void activePeripheralsNamesChanged( QList<QString> peripheralNamesList);
     void activeJoystickNameChanged(const QString& name);
+    void disablePeripheralNameChanged(const QString& name);
     void availableJoysticksChanged(void);
     void updateAvailableJoysticksSignal();
 
