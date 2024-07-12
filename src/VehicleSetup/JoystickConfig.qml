@@ -80,6 +80,9 @@ SetupPage {
                     visible:    _allowJoystickSelection
                 }
                 QGCTabButton {
+                    text:       qsTr("Peripherals")
+                }
+                QGCTabButton {
                     text:       qsTr("Button Assigment")
                 }
                 QGCTabButton {

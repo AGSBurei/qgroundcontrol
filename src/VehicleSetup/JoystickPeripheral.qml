@@ -32,7 +32,7 @@ Item {
         Row{
             QGCLabel {
                 id:         joystickPeripheralsPageLabel
-                text:       qsTr("Select wanted peripheral to be active")
+                text:       qsTr("Select wanted peripherals to be active")
             }
         }
         GridLayout{
