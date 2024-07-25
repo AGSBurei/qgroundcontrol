@@ -16,7 +16,6 @@
  *
  */
 
-#include "QmlControls/QGCImageProvider.h"
 #include <QtCore/QFile>
 #include <QtCore/QRegularExpression>
 #include <QtGui/QFontDatabase>
@@ -27,10 +26,6 @@
 #include <QtNetwork/QNetworkProxyFactory>
 #include <QtQml/QQmlContext>
 #include <QtQml/QQmlApplicationEngine>
-
-#if defined(QGC_GST_STREAMING)
-#include "GStreamer.h"
-#endif
 
 #include "QGCConfig.h"
 #include "QGCApplication.h"
@@ -243,16 +238,6 @@ QGCApplication::QGCApplication(int &argc, char* argv[], bool unitTesting)
     // Set up our logging filters
     QGCLoggingCategoryRegister::instance()->setFilterRulesFromSettings(loggingOptions);
 
-#if defined(QGC_GST_STREAMING)
-    // Gstreamer debug settings
-    int gstDebugLevel = 0;
-    if (settings.contains(AppSettings::gstDebugLevelName)) {
-        gstDebugLevel = settings.value(AppSettings::gstDebugLevelName).toInt();
-    }
-    // Initialize Video Receiver
-    GStreamer::initialize(argc, argv, gstDebugLevel);
-#endif
-
     // We need to set language as early as possible prior to loading on JSON files.
     setLanguage();
 
@@ -269,7 +254,7 @@ void QGCApplication::setLanguage()
     _locale = QLocale::system();
     qCDebug(QGCApplicationLog) << "System reported locale:" << _locale << "; Name" << _locale.name() << "; Preffered (used in maps): " << (QLocale::system().uiLanguages().length() > 0 ? QLocale::system().uiLanguages()[0] : "None");
 
-    QLocale::Language possibleLocale = AppSettings::_qLocaleLanguageID();
+    QLocale::Language possibleLocale = AppSettings::_qLocaleLanguageEarlyAccess();
     if (possibleLocale != QLocale::AnyLanguage) {
         _locale = QLocale(possibleLocale);
     }

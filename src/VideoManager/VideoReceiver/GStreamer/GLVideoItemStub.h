@@ -5,13 +5,11 @@
 class GLVideoItemStub : public QQuickItem
 {
     Q_OBJECT
+    QML_NAMED_ELEMENT(GstGLQt6VideoItem)
 
 public:
-    GLVideoItemStub();
-    ~GLVideoItemStub();
-
-protected:
-
-private:
-
+    GLVideoItemStub(QQuickItem *parent = nullptr) :
+        QQuickItem(parent)
+    {}
+    ~GLVideoItemStub() = default;
 };
