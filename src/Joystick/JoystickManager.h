@@ -39,6 +39,10 @@ public:
     Q_PROPERTY(Joystick* activeJoystick READ activeJoystick WRITE setActiveJoystick NOTIFY activeJoystickChanged)
     Q_PROPERTY(QString activeJoystickName READ activeJoystickName WRITE setActiveJoystickName NOTIFY activeJoystickNameChanged)
 
+    Q_PROPERTY(QList<Joystick*> activePeripherals READ activePeripherals WRITE setActivePeripherals NOTIFY activePeripheralsNamesChanged)
+    Q_PROPERTY(QString activePeripheralName READ activePeripheralName WRITE setActivePeripheralName NOTIFY activePeripheralsNamesChanged)
+    Q_PROPERTY(QString disablePeripheralName READ activePeripheralName WRITE disablePeripheralName NOTIFY disablePeripheralNameChanged)
+
     /// List of available joysticks
     QVariantList joysticks();
     /// List of available joystick names
@@ -46,12 +50,24 @@ public:
 
     /// Get active joystick
     Joystick* activeJoystick(void);
+    /// Get List of actives peripherals
+    QList<Joystick*> activePeripherals(void);
+
+
     /// Set active joystick
     void setActiveJoystick(Joystick* joystick);
+    ///Set active peripherals
+    void setActivePeripherals(Joystick* joystick);
+    void setActivePeripherals(QList<Joystick*> peripherals);
+    void disablePeripheral(Joystick* joystick);
 
     QString activeJoystickName(void);
-    bool setActiveJoystickName(const QString& name);
+    QString activePeripheralName(void);
+    QList<QString> activeJoysticksNames(void);
 
+    bool setActiveJoystickName(const QString& name);
+    bool setActivePeripheralName(const QString& name);
+    bool disablePeripheralName(const QString& name);
     void restartJoystickCheckTimer(void);
 
     // Override from QGCTool
@@ -62,7 +78,10 @@ public slots:
 
 signals:
     void activeJoystickChanged(Joystick* joystick);
+    void activePeripheralsChanged(QList<Joystick*> joysticksList);
+    void activePeripheralsNamesChanged( QList<QString> peripheralNamesList);
     void activeJoystickNameChanged(const QString& name);
+    void disablePeripheralNameChanged(const QString& name);
     void availableJoysticksChanged(void);
     void updateAvailableJoysticksSignal();
 
@@ -71,9 +90,12 @@ private slots:
 
 private:
     void _setActiveJoystickFromSettings(void);
+    void _setActivePeripheralssFromSettings(void);
+
 
 private:
     Joystick*                   _activeJoystick;
+    QList<Joystick*>            _activePeripheralsList;
     QMap<QString, Joystick*>    _name2JoystickMap;
     MultiVehicleManager*        _multiVehicleManager;
 
