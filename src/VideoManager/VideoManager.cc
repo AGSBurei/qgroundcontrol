@@ -108,7 +108,7 @@ VideoManager::setToolbox(QGCToolbox *toolbox)
     QStringList args = _app->arguments();
     const qsizetype argc = args.size();
     char** argv = new char*[argc];
-    for (size_t i = 0; i < argc; i++) {
+    for (qsizetype i = 0; i < argc; i++) {
         argv[i] = args[i].toUtf8().data();
     }
     GStreamer::initialize(argc, argv, gstDebugLevel);
@@ -695,7 +695,7 @@ VideoManager::_updateSettings(unsigned id)
                             _toolbox->settingsManager()->videoSettings()->videoSource()->setRawValue(VideoSettings::videoSourceUDPH264);
                         }
                         break;
-                    case VIDEO_STREAM_TYPE_MPEG_TS_H264:
+                    case VIDEO_STREAM_TYPE_MPEG_TS:
                         if ((settingsChanged |= _updateVideoUri(id, QStringLiteral("mpegts://0.0.0.0:%1").arg(pInfo->uri())))) {
                             _toolbox->settingsManager()->videoSettings()->videoSource()->setRawValue(VideoSettings::videoSourceMPEGTS);
                         }
@@ -716,7 +716,7 @@ VideoManager::_updateSettings(unsigned id)
                         case VIDEO_STREAM_TYPE_RTPUDP:
                             settingsChanged |= _updateVideoUri(id, QStringLiteral("udp://0.0.0.0:%1").arg(pTinfo->uri()));
                             break;
-                        case VIDEO_STREAM_TYPE_MPEG_TS_H264:
+                        case VIDEO_STREAM_TYPE_MPEG_TS:
                             settingsChanged |= _updateVideoUri(id, QStringLiteral("mpegts://0.0.0.0:%1").arg(pTinfo->uri()));
                             break;
                         default:
