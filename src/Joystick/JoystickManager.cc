@@ -50,7 +50,13 @@ JoystickManager::JoystickManager(QObject *parent)
                 _activeJoystick->_stopAllPollingForVehicle();
             }
         }
+        _restartPeripheralPolling();
         emit activeJoystickEnabledForActiveVehicleChanged();
+    });
+
+    (void) connect(_joystickManagerSettings->activePeripheralNames(), &Fact::rawValueChanged, this, [this](const QVariant &value) {
+        Q_UNUSED(value);
+        _updateActivePeripherals();
     });
 
     (void) connect(MultiVehicleManager::instance(), &MultiVehicleManager::activeVehicleChanged, this, &JoystickManager::_activeVehicleChanged);
@@ -64,6 +70,7 @@ JoystickManager::JoystickManager(QObject *parent)
 JoystickManager::~JoystickManager()
 {
     _pollTimer.stop();
+    _activePeripherals.clear();
 
     for (QMap<QString, Joystick*>::key_value_iterator it = _name2JoystickMap.keyValueBegin(); it != _name2JoystickMap.keyValueEnd(); ++it) {
         qCDebug(JoystickManagerLog) << "Releasing joystick:" << it->first;
@@ -116,6 +123,15 @@ void JoystickManager::_checkForAddedOrRemovedJoysticks()
         _setActiveJoystick(nullptr);
     }
 
+    // Forget additional peripherals that were unplugged. They are stopped and released just below.
+    const qsizetype removedPeripheralCount = _activePeripherals.removeIf([&newJoystickMap](const Joystick *peripheral) {
+        return !newJoystickMap.contains(peripheral->name());
+    });
+    if (removedPeripheralCount > 0) {
+        qCInfo(JoystickManagerLog) << "Additional peripheral(s) removed:" << removedPeripheralCount;
+        emit activePeripheralsChanged();
+    }
+
     // Check to see if our current mapping contains any joysticks that are not in the new mapping
     // If so, those joysticks have been unplugged, and need to be cleaned up
     for (QMap<QString, Joystick*>::key_value_iterator it = _name2JoystickMap.keyValueBegin(); it != _name2JoystickMap.keyValueEnd(); ++it) {
@@ -138,6 +154,7 @@ void JoystickManager::_checkForAddedOrRemovedJoysticks()
     _name2JoystickMap = newJoystickMap;
 
     _setActiveJoystickFromSettings();
+    _updateActivePeripherals();
     _updatePollingTimer();
 
     emit availableJoystickNamesChanged();
@@ -206,6 +223,13 @@ void JoystickManager::_setActiveJoystick(Joystick *newActiveJoystick)
     if (newActiveJoystick) {
         qCDebug(JoystickManagerLog) << "Set active:" << newActiveJoystick->name();
 
+        // A device that was used as an additional peripheral becomes the active joystick:
+        // it must stop polling as a peripheral before it can poll as the active joystick.
+        if (_activePeripherals.removeAll(newActiveJoystick) > 0) {
+            _releasePeripheral(newActiveJoystick);
+            emit activePeripheralsChanged();
+        }
+
         _activeJoystick = newActiveJoystick;
 
         auto multiVehicleManager = MultiVehicleManager::instance();
@@ -223,6 +247,10 @@ void JoystickManager::_setActiveJoystick(Joystick *newActiveJoystick)
         emit activeJoystickChanged(_activeJoystick);
         emit activeJoystickEnabledForActiveVehicleChanged();
     }
+
+    // The previous active joystick may now be an additional peripheral, or all of them may need
+    // releasing because there is no active joystick anymore.
+    _updateActivePeripherals();
 }
 
 void JoystickManager::_setActiveJoystickByName(const QString &name)
@@ -240,6 +268,8 @@ void JoystickManager::_activeVehicleChanged(Vehicle *activeVehicle)
     if (!_activeJoystick) {
         return;
     }
+
+    _restartPeripheralPolling();
 
     _activeJoystick->_stopAllPollingForVehicle();
 
@@ -371,5 +401,112 @@ void JoystickManager::_updatePollingTimer()
     if (!_pollTimer.isActive()) {
         qCDebug(JoystickManagerLog) << "Starting SDL event pump timer";
         _pollTimer.start();
+    }
+}
+
+QStringList JoystickManager::_savedPeripheralNames() const
+{
+    return _joystickManagerSettings->activePeripheralNames()->rawValue().toString().split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+}
+
+QStringList JoystickManager::activePeripheralNames() const
+{
+    QStringList names;
+    names.reserve(_activePeripherals.size());
+    for (const Joystick *peripheral : _activePeripherals) {
+        names.append(peripheral->name());
+    }
+    return names;
+}
+
+void JoystickManager::setPeripheralActive(const QString &name, bool active)
+{
+    if (name.isEmpty()) {
+        return;
+    }
+
+    QStringList savedNames = _savedPeripheralNames();
+    if (active) {
+        if (savedNames.contains(name)) {
+            return;
+        }
+        savedNames.append(name);
+    } else {
+        if (savedNames.removeAll(name) == 0) {
+            return;
+        }
+    }
+
+    qCDebug(JoystickManagerLog) << "Peripheral" << name << (active ? "selected" : "deselected");
+    // Triggers _updateActivePeripherals() through the Fact connection
+    _joystickManagerSettings->activePeripheralNames()->setRawValue(savedNames.join(QLatin1Char('\n')));
+}
+
+void JoystickManager::_updateActivePeripherals()
+{
+    // Additional peripherals only work alongside an active joystick
+    QList<Joystick*> wanted;
+    if (_activeJoystick) {
+        for (const QString &name : _savedPeripheralNames()) {
+            Joystick *const joystick = _name2JoystickMap.value(name, nullptr);
+            if (joystick && (joystick != _activeJoystick) && !wanted.contains(joystick)) {
+                wanted.append(joystick);
+            }
+        }
+    }
+
+    if (wanted == _activePeripherals) {
+        return;
+    }
+
+    for (Joystick *peripheral : std::as_const(_activePeripherals)) {
+        if (!wanted.contains(peripheral)) {
+            qCDebug(JoystickManagerLog) << "Releasing additional peripheral:" << peripheral->name();
+            _releasePeripheral(peripheral);
+        }
+    }
+
+    const QList<Joystick*> previous = _activePeripherals;
+    _activePeripherals = wanted;
+
+    for (Joystick *peripheral : std::as_const(_activePeripherals)) {
+        if (!previous.contains(peripheral)) {
+            qCDebug(JoystickManagerLog) << "Using additional peripheral:" << peripheral->name();
+            peripheral->_setAdditionalPeripheral(true);
+            _startPeripheralPolling(peripheral);
+        }
+    }
+
+    emit activePeripheralsChanged();
+}
+
+void JoystickManager::_startPeripheralPolling(Joystick *peripheral)
+{
+    Vehicle *const activeVehicle = MultiVehicleManager::instance()->activeVehicle();
+    if (!activeVehicle || !_activeJoystick || !_joystickEnabledForVehicle(activeVehicle)) {
+        return;
+    }
+    if (peripheral->_pollingFlags.testFlag(Joystick::PollingForVehicle)) {
+        return;
+    }
+    peripheral->_startPollingForVehicle(*activeVehicle);
+}
+
+void JoystickManager::_releasePeripheral(Joystick *peripheral)
+{
+    // Stop while still flagged as a peripheral, so it does not clear the active joystick's RC override
+    if (peripheral->_pollingFlags.testFlag(Joystick::PollingForVehicle)) {
+        peripheral->_stopAllPollingForVehicle();
+    }
+    peripheral->_setAdditionalPeripheral(false);
+}
+
+void JoystickManager::_restartPeripheralPolling()
+{
+    for (Joystick *peripheral : std::as_const(_activePeripherals)) {
+        if (peripheral->_pollingFlags.testFlag(Joystick::PollingForVehicle)) {
+            peripheral->_stopAllPollingForVehicle();
+        }
+        _startPeripheralPolling(peripheral);
     }
 }

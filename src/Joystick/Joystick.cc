@@ -784,7 +784,8 @@ void Joystick::_handleButtons()
             qCWarning(JoystickLog) << "Internal Error: Joystick not enabled for vehicle!";
             return;
         }
-        if (!_joystickSettings.calibrated()->rawValue().toBool()) {
+        // Additional peripherals only provide button actions, so their axis calibration does not matter here
+        if (!_additionalPeripheral && !_joystickSettings.calibrated()->rawValue().toBool()) {
             return;
         }
 
@@ -959,6 +960,11 @@ void Joystick::_handleAxis()
         }
         emit rawChannelValuesChanged(channelValues);
     } else if (_pollingFlags.testFlag(PollingForVehicle)) {
+        if (_additionalPeripheral) {
+            // Stick axes come from the active joystick only. Sending MANUAL_CONTROL from several
+            // devices would make them fight each other.
+            return;
+        }
         Vehicle *const vehicle = _pollingVehicle;
         if (!vehicle) {
             qCWarning(JoystickLog) << "Internal Error: No vehicle for joystick!";
@@ -1291,7 +1297,10 @@ void Joystick::_stopAllPollingForVehicle()
     qCDebug(JoystickLog) << "Stopping all joystick polling for vehicle. Current flags:" << _pollingFlagsToString(_pollingFlags);
 
     if (_pollingVehicle) {
-        _pollingVehicle->sendJoystickAuxRcOverrideThreadSafe({}, {}, false);
+        if (!_additionalPeripheral) {
+            // Only the active joystick sends RC override, so only it clears it
+            _pollingVehicle->sendJoystickAuxRcOverrideThreadSafe({}, {}, false);
+        }
         (void) disconnect(this, nullptr, _pollingVehicle, nullptr);
         (void) disconnect(_pollingVehicle, &Vehicle::flightModesChanged, this, &Joystick::_flightModesChanged);
         if (GimbalController *const gimbal = _pollingVehicle->gimbalController()) {
@@ -1945,6 +1954,15 @@ void Joystick::setLinkedGroupId(const QString &groupId)
         settings.endGroup();
 
         emit linkedGroupChanged();
+    }
+}
+
+void Joystick::_setAdditionalPeripheral(bool additionalPeripheral)
+{
+    if (_additionalPeripheral != additionalPeripheral) {
+        _additionalPeripheral = additionalPeripheral;
+        qCDebug(JoystickLog) << _name << "additional peripheral:" << additionalPeripheral;
+        emit additionalPeripheralChanged();
     }
 }
 

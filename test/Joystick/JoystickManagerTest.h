@@ -37,6 +37,7 @@ private slots:
 
     // Multiple controller handling tests
     void _multipleControllerManagementTest();
+    void _additionalPeripheralsTest();
 
     // Group helper tests
     void _linkedGroupMembersTest();

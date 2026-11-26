@@ -6,10 +6,13 @@
 #include <QtCore/QRegularExpression>
 #include <QtTest/QSignalSpy>
 
+#include "Fact.h"
 #include "JoystickManager.h"
+#include "JoystickManagerSettings.h"
 #include "JoystickSDL.h"
 #include "MockJoystick.h"
 #include "SDLJoystick.h"
+#include "SettingsManager.h"
 
 void JoystickManagerTest::initTestCase()
 {
@@ -386,6 +389,70 @@ void JoystickManagerTest::_multipleControllerManagementTest()
             QCOMPARE(active->name(), QStringLiteral("Multi Controller 3"));
         }
     }
+}
+
+void JoystickManagerTest::_additionalPeripheralsTest()
+{
+    if (!_multiJoysticksSupported()) {
+        QSKIP("Skipping: backend did not expose two concurrent virtual joysticks");
+    }
+    JoystickManager* manager = JoystickManager::instance();
+    JoystickManagerSettings* settings = SettingsManager::instance()->joystickManagerSettings();
+    settings->activePeripheralNames()->setRawValue(QString());
+
+    const QString stickName = QStringLiteral("Peripheral Test Stick");
+    const QString panelName = QStringLiteral("Peripheral Test Button Panel");
+    _mockJoystick1 = std::unique_ptr<MockJoystick>(MockJoystick::create(stickName, 6, 16, 1));
+    _mockJoystick2 = std::unique_ptr<MockJoystick>(MockJoystick::create(panelName, 2, 12, 0));
+    QVERIFY(_mockJoystick1->isValid());
+    QVERIFY(_mockJoystick2->isValid());
+    QVERIFY(_waitForJoystickNames(manager, {stickName, panelName}));
+
+    settings->activeJoystickName()->setRawValue(stickName);
+    QVERIFY(manager->activeJoystick() != nullptr);
+    QCOMPARE(manager->activeJoystick()->name(), stickName);
+
+    Joystick* stick = manager->joystickByName(stickName);
+    Joystick* panel = manager->joystickByName(panelName);
+    QVERIFY(stick != nullptr);
+    QVERIFY(panel != nullptr);
+    QVERIFY(manager->activePeripheralNames().isEmpty());
+
+    // Select the panel as an additional peripheral
+    QSignalSpy spy(manager, &JoystickManager::activePeripheralsChanged);
+    QVERIFY(spy.isValid());
+    manager->setPeripheralActive(panelName, true);
+    QCOMPARE(manager->activePeripheralNames(), QStringList{panelName});
+    QVERIFY(panel->additionalPeripheral());
+    QVERIFY(!stick->additionalPeripheral());
+    QVERIFY(spy.size() >= 1);
+
+    // Selecting the active joystick is remembered but never used as a peripheral while it is active
+    manager->setPeripheralActive(stickName, true);
+    QCOMPARE(manager->activePeripheralNames(), QStringList{panelName});
+    QVERIFY(!stick->additionalPeripheral());
+
+    // Swap roles: the panel becomes the active joystick, the stick becomes a peripheral
+    settings->activeJoystickName()->setRawValue(panelName);
+    QCOMPARE(manager->activeJoystick()->name(), panelName);
+    QVERIFY(!panel->additionalPeripheral());
+    QVERIFY(stick->additionalPeripheral());
+    QCOMPARE(manager->activePeripheralNames(), QStringList{stickName});
+
+    // Deselect
+    manager->setPeripheralActive(stickName, false);
+    QVERIFY(manager->activePeripheralNames().isEmpty());
+    QVERIFY(!stick->additionalPeripheral());
+
+    // An unplugged peripheral is dropped from the active list
+    manager->setPeripheralActive(stickName, true);
+    QCOMPARE(manager->activePeripheralNames(), QStringList{stickName});
+    _mockJoystick1.reset();
+    _refreshJoysticks(manager);
+    QVERIFY(!manager->availableJoystickNames().contains(stickName));
+    QVERIFY(manager->activePeripheralNames().isEmpty());
+
+    settings->activePeripheralNames()->setRawValue(QString());
 }
 
 void JoystickManagerTest::_linkedGroupMembersTest()

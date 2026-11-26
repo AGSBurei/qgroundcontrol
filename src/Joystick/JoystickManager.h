@@ -26,6 +26,10 @@ class JoystickManager : public QObject
     /// Number of connected joysticks
     Q_PROPERTY(int joystickCount READ joystickCount NOTIFY availableJoystickNamesChanged)
 
+    /// Names of the connected devices used alongside the active joystick (button actions only).
+    /// Never contains the active joystick itself.
+    Q_PROPERTY(QStringList activePeripheralNames READ activePeripheralNames NOTIFY activePeripheralsChanged)
+
 #ifdef QGC_UNITTEST_BUILD
     friend class JoystickManagerTest;
 #endif
@@ -50,10 +54,17 @@ public:
     /// Get joystick by name (returns nullptr if not found)
     Q_INVOKABLE Joystick *joystickByName(const QString &name) const;
 
+    /// Multi-peripheral support: use other connected devices alongside the active joystick
+    QStringList activePeripheralNames() const;
+    /// Add or remove a device from the saved peripheral selection. Selecting the active joystick
+    /// is allowed: it is used as an additional peripheral again once another joystick becomes active.
+    Q_INVOKABLE void setPeripheralActive(const QString &name, bool active);
+
 signals:
     void activeJoystickChanged(Joystick *joystick);
     void activeJoystickEnabledForActiveVehicleChanged();
     void availableJoystickNamesChanged();
+    void activePeripheralsChanged();
 
 public slots:
     void init();
@@ -79,8 +90,16 @@ private:
     Joystick *_findJoystickByInstanceId(int instanceId);
     void _updatePollingTimer();
 
+    QStringList _savedPeripheralNames() const;
+    /// Bring _activePeripherals in line with the saved selection, the connected devices and the active joystick
+    void _updateActivePeripherals();
+    void _startPeripheralPolling(Joystick *peripheral);
+    void _releasePeripheral(Joystick *peripheral);
+    void _restartPeripheralPolling();
+
     JoystickManagerSettings *_joystickManagerSettings = nullptr;
     Joystick *_activeJoystick = nullptr;
+    QList<Joystick*> _activePeripherals;  ///< Additional devices, never includes _activeJoystick
     QMap<QString, Joystick*> _name2JoystickMap;
     QTimer _pollTimer;
 };

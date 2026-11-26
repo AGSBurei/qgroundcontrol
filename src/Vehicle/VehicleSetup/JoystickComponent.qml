@@ -85,6 +85,11 @@ SetupPage {
                 }
             }
 
+            JoystickComponentPeripherals {
+                Layout.fillWidth: true
+                visible: QGroundControl.corePlugin.options.allowJoystickSelection && root.availableJoystickNames.length > 1
+            }
+
             Loader {
                 id: remoteControlCalibrationLoader
                 Layout.fillWidth: true

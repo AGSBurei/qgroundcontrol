@@ -8,8 +8,9 @@
 #include <QtGui/QVector3D>
 #include <QtQmlIntegration/QtQmlIntegration>
 
-#include <functional>
 #include <array>
+#include <atomic>
+#include <functional>
 
 #include "RemoteControlCalibrationController.h"
 #include "JoystickSettings.h"
@@ -56,9 +57,10 @@ private:
     const std::function<void()> _onUp;
 };
 
-// There is only one Joystick instance active in the system at a time.
-// You get access to it through JoystickManager.
-// It is associated with a specific Vehicle instance.
+// One Joystick is the active joystick: it sends stick axes to the vehicle.
+// Other connected devices can be used alongside it as additional peripherals,
+// which only contribute their button actions. You get access to them through JoystickManager.
+// A polling Joystick is associated with a specific Vehicle instance.
 class Joystick : public QThread
 {
     Q_OBJECT
@@ -105,6 +107,7 @@ public:
     Q_PROPERTY(QString                  buttonActionNone        READ    buttonActionNone                                    CONSTANT)
     Q_PROPERTY(QString                  linkedGroupId           READ    linkedGroupId           WRITE setLinkedGroupId      NOTIFY linkedGroupChanged)
     Q_PROPERTY(QString                  linkedGroupRole         READ    linkedGroupRole         WRITE setLinkedGroupRole    NOTIFY linkedGroupChanged)
+    Q_PROPERTY(bool                     additionalPeripheral    READ    additionalPeripheral                                NOTIFY additionalPeripheralChanged)
 
     Joystick(const QString &name, int axisCount, int buttonCount, int hatCount, QObject *parent = nullptr);
     virtual ~Joystick();
@@ -321,6 +324,11 @@ public:
     QString linkedGroupRole() const { return _linkedGroupRole; }
     void setLinkedGroupRole(const QString &role);
 
+    /// true: this device is an additional peripheral used alongside the active joystick.
+    /// Additional peripherals contribute their button actions only; stick axes and the
+    /// MANUAL_CONTROL button bitmask still come from the active joystick alone.
+    bool additionalPeripheral() const { return _additionalPeripheral; }
+
     void setAxisCalibration(int axis, const AxisCalibration_t &calibration);
     Joystick::AxisCalibration_t getAxisCalibration(int axis) const;
 
@@ -342,6 +350,7 @@ signals:
     void batteryStateChanged();
     void connectionStateChanged(const QString &newState);
     void linkedGroupChanged();
+    void additionalPeripheralChanged();
     void axisValues(float roll, float pitch, float yaw, float throttle);
     void startContinuousZoom(int direction);
     void stopContinuousZoom();
@@ -417,6 +426,7 @@ private:
     void _startPollingForConfiguration();
     void _stopPollingForConfiguration();
     void _stopAllPollingForVehicle();
+    void _setAdditionalPeripheral(bool additionalPeripheral);
     void _startPollingThread();
     void _stopPollingThread();
     QString _pollingFlagsToString(PollingFlags flags) const;
@@ -488,6 +498,9 @@ private:
     // HOTAS/Multi-device linking
     QString _linkedGroupId;
     QString _linkedGroupRole;
+
+    // Multi-peripheral support (read from the polling thread)
+    std::atomic<bool> _additionalPeripheral = false;
 
     static constexpr const char *_buttonActionNone =               QT_TR_NOOP("No Action");
     static constexpr const char *_buttonActionArm =                QT_TR_NOOP("Arm");

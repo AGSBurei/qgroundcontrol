@@ -15,6 +15,13 @@
             "type": "string",
             "default": "",
             "label": "Comma separated list of vehicle IDs with joystick enabled"
+        },
+        {
+            "name": "activePeripheralNames",
+            "shortDesc": "Newline separated list of additional joysticks/peripherals used alongside the active joystick",
+            "type": "string",
+            "default": "",
+            "label": "Additional active peripherals"
         }
     ]
 }
